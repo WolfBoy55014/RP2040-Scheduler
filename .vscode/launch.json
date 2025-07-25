@@ -8,7 +8,7 @@
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
-            "serverpath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+            "serverpath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd",
             "gdbPath": "${command:raspberry-pi-pico.getGDBPath}",
             "device": "${command:raspberry-pi-pico.getChipUppercase}",
             "configFiles": [
@@ -16,7 +16,7 @@
                 "target/${command:raspberry-pi-pico.getTarget}.cfg"
             ],
             "svdFile": "${userHome}/.pico-sdk/sdk/2.1.1/src/${command:raspberry-pi-pico.getChip}/hardware_regs/${command:raspberry-pi-pico.getChipUppercase}.svd",
-            "runToEntryPoint": "main",
+            // "runToEntryPoint": "main",
             // Fix for no_flash binaries, where monitor reset halt doesn't do what is expected
             // Also works fine for flash binaries
             "overrideLaunchCommands": [
@@ -55,7 +55,7 @@
             "MIMode": "gdb",
             "miDebuggerPath": "${command:raspberry-pi-pico.getGDBPath}",
             "miDebuggerServerAddress": "localhost:3333",
-            "debugServerPath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+            "debugServerPath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd",
             "debugServerArgs": "-f interface/cmsis-dap.cfg -f target/${command:raspberry-pi-pico.getTarget}.cfg -c \"adapter speed 5000\"",
             "serverStarted": "Listening on port .* for gdb connections",
             "filterStderr": true,
