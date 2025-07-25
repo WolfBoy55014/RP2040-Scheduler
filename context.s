@@ -10,73 +10,28 @@
 .extern task_list
 .extern getNextTask
 
-// Make functions visible to C
+.global _cpsid
+.type _cpsid, %function
+
+_cpsid:
+    cpsid i
+    bx lr
+
+.global _cpsie
+.type _cpsie, %function
+
+_cpsie:
+    cpsie i
+    bx lr
+
 .global set_spsel
-.global context_save
-.global context_load
 .type set_spsel, %function
-.type context_save, %function
-.type context_load, %function
 
 set_spsel: // Do not run in interrupt, or it will break!
     mov r1, sp
     msr control, r0
     msr psp, r1
     isb
-    bx lr
-
-context_save:
-    // Ensure our main sp is saved
-    mov r3, sp
-    isb
-
-    // Load process stack pointer
-    mrs r1, psp
-    mov sp, r1
-    isb
-
-    push {r4-r7}
-    mov r4, r8
-    mov r5, r9
-    mov r6, r10
-    mov r7, r11
-    push {r4-r7}
-
-    mov r1, sp
-    str r1, [r0] // Save the stack pointer to the task_t object
-
-    // Go back to msp
-    mov sp, r3
-    isb
-
-    bx lr
-
-context_load:
-    // Ensure our main sp is saved
-    mov r3, sp
-    isb
-
-    // Load process stack pointer
-    ldr r1, [r0]
-    mov sp, r1
-    isb
-
-    pop {r4-r7}
-    mov r8, r4
-    mov r9, r5
-    mov r10, r6
-    mov r11, r7
-    pop {r4-r7}
-
-    // Save new process stack pointer to psp and the task_t object
-    mov r1, sp
-    msr psp, r1
-    isb
-
-    // Go back to msp
-    mov sp, r3
-    isb
-
     bx lr
 
 .global isr_pendsv
