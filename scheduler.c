@@ -10,6 +10,7 @@
 #include "scheduler.h"
 
 #include <math.h>
+#include <sys/signal.h>
 
 #include "task.h"
 
@@ -50,6 +51,33 @@ void calculateCPUUsage() {
     printf("===========================================\n\n");
 
     total_ticks_executing = 0;
+}
+
+void calculateStackUsage() {
+    printf("=============== Stack Usage ===============\n");
+
+    for (uint32_t t = 0; t < num_tasks; t++) {
+        task_t *task = &task_list[t];
+        uint32_t bytes_used = 0;
+
+        for (uint32_t i = 0; i < STACK_SIZE; i++) {
+            if (task->stack[i] != STACK_FILLER) {
+                bytes_used++;
+            }
+        }
+
+        task->stack_usage = (bytes_used * 100) / STACK_SIZE;
+
+        // stack overflow ;)
+        if (bytes_used >= STACK_SIZE) {
+            LED_FLAG(LED_WARN_PIN);
+            task->state = SUSPENDED;
+        }
+
+        printf("PID: %u, USAGE: %u%%\n", task->id, task->stack_usage);
+    }
+
+    printf("===========================================\n\n");
 }
 
 void getNextTask() {
@@ -117,8 +145,9 @@ void isr_systick(void) {
     total_ticks_executing++;
     current_task->ticks_executing++;
 
-    if ((total_ticks_executing % 5000) == 0) {
+    if ((total_ticks_executing % 1000) == 0) {
         calculateCPUUsage();
+        calculateStackUsage();
     }
 
     // raise PendSV interrupt (handler in assembly!)
@@ -164,10 +193,15 @@ uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     uint32_t *stack_top = task->stack; // lowest value in stack
     task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)
 
-    // Save current stack pointer position
+    // fill stack with known values for stack monitoring
+    for (uint32_t i = 0; i < STACK_SIZE; i++) {
+        task->stack[i] = STACK_FILLER;
+    }
+
+    // save current stack pointer position
     task->stack_pointer = task->stack_base;
     
-    // Set up initial stack frame for context switching
+    // set up initial stack frame for context switching
     *(task->stack_pointer--) = (uint32_t)0x01000000;  // PSR (Thumb bit set)
     *(task->stack_pointer--) = (uint32_t)task_function;  // PC (where to start)
     *(task->stack_pointer--) = (uint32_t)task_function;  // LR (return address)

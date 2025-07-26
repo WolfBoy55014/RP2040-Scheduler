@@ -6,9 +6,11 @@
 #include <pico/stdlib.h>
 #include <hardware/gpio.h>
 
-#define MAX_TASKS 3 // +1 for idle
-#define STACK_SIZE 128 // x4b
+#define MAX_TASKS 8 // +1 for idle
+#define STACK_SIZE 32 // x4b
 #define LOOP_TIME 1 // ms
+
+#define STACK_FILLER 0x1ABE11ED
 
 #define LED_DEBUG_PIN 25
 #define LED_WARN_PIN  5
@@ -46,6 +48,7 @@ typedef struct {
     absolute_time_t resume_us;
     uint8_t cpu_usage;
     uint32_t ticks_executing;
+    uint8_t stack_usage;
 } task_t;
 
 /* Scheduler Variables */
