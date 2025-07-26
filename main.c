@@ -121,15 +121,15 @@ void task_two(uint32_t pid) {
     pwm_set_enabled(slice_num, true);
 
     while (true) {
-        for (uint16_t i = 0; i < 31; i++) {
+        for (uint16_t i = 0; i < 127; i++) {
             pwm_set_gpio_level(pid, i);
-            task_sleep_ms(40);
         }
 
-        for (uint16_t i = 31; i > 0; i--) {
+        for (uint16_t i = 127; i > 0; i--) {
             pwm_set_gpio_level(pid, i);
-            task_sleep_ms(40);
         }
+
+        task_yield();
     }
 }
 
@@ -137,7 +137,7 @@ int main() {
     stdio_init_all();
 
     addTask(task_one, 9, 2);
-    addTask(task_two, 10, 2);
+    addTask(task_two, 10, 3);
 
     startScheduler();
 

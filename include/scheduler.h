@@ -6,7 +6,7 @@
 #include <pico/stdlib.h>
 #include <hardware/gpio.h>
 
-#define MAX_TASKS 3
+#define MAX_TASKS 3 // +1 for idle
 #define STACK_SIZE 128 // x4b
 #define LOOP_TIME 1 // ms
 
@@ -31,7 +31,8 @@ enum task_state {
     RUNNING,
     READY,
     SUSPENDED,
-    WAIT_US
+    WAIT_US,
+    YIELDING
 };
 
 typedef struct {
@@ -40,18 +41,26 @@ typedef struct {
     uint32_t stack_size;      // Stack size
     uint32_t *stack_base;     // Base of stack memory
     uint32_t id;         // Task identifier
-    uint32_t priority;
+    uint8_t priority;
     enum task_state state;
     absolute_time_t resume_us;
+    uint8_t cpu_usage;
+    uint32_t ticks_executing;
 } task_t;
 
-extern volatile task_t *current_task;
-extern volatile task_t task_list[MAX_TASKS + 1];
-extern volatile uint32_t current_task_index;
+/* Scheduler Variables */
 extern volatile uint32_t num_tasks;
+extern volatile task_t *current_task;
+extern volatile uint32_t current_task_index;
+extern volatile task_t task_list[MAX_TASKS];
 extern volatile uint32_t scheduler_started;
 
+/* CPU Usage Variables */
+extern uint64_t total_ticks_executing;
+extern uint8_t total_cpu_usage;
+
+/* Basic Scheduler Functions */
 uint32_t startScheduler();
-uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint32_t priority);
+uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) ;
 
 #endif //SCHEDULER_H

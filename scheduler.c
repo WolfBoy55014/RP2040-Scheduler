@@ -13,21 +13,55 @@
 
 #include "task.h"
 
+/* Public Assembly Functions */
 extern void _cpsid();
 extern void _cpsie();
 extern void set_spsel(uint32_t control);
 
-volatile task_t *current_task;
-volatile task_t task_list[MAX_TASKS + 1];
-volatile uint32_t current_task_index = 0;
+/* Scheduler Variables */
 volatile uint32_t num_tasks = 0;
+volatile task_t *current_task;
+volatile uint32_t current_task_index = 0;
+volatile task_t task_list[MAX_TASKS];
 volatile uint32_t scheduler_started = false;
+
+/* CPU Usage Variables */
+uint64_t total_ticks_executing = 0;
+uint8_t total_cpu_usage = 0;
+
+void calculateCPUUsage() {
+    total_cpu_usage = 0;
+
+    printf("================ CPU Usage ================\n");
+
+    for (uint32_t t = 0; t < num_tasks; t++) {
+        task_t *task = &task_list[t];
+        uint8_t cpu_usage = (task->ticks_executing * 100) / total_ticks_executing;
+        task->cpu_usage = cpu_usage;
+        if (task->id != 0) {
+            total_cpu_usage += cpu_usage;
+        }
+        task->ticks_executing = 0;
+
+        printf("PID: %u, USAGE: %u%%\n", task->id, task->cpu_usage);
+    }
+
+    printf("Total Usage: %u%%\n", total_cpu_usage);
+    printf("===========================================\n\n");
+
+    total_ticks_executing = 0;
+}
 
 void getNextTask() {
 
-    uint32_t highest_priority = 0;
+    uint8_t highest_priority = 0;
 
-    for (uint32_t t = 0; t < num_tasks; t++) {
+    if (current_task->state == RUNNING) {
+        current_task->state = READY; // tell scheduler that the old task is not running anymore
+                                     // when we move to dual core, this will be useful
+    }
+
+    for (uint32_t t = 1; t <= num_tasks; t++) {
         uint32_t potential_index = (t + current_task_index) % num_tasks;
 
         task_t *potential_task = &task_list[potential_index];
@@ -45,15 +79,17 @@ void getNextTask() {
                 highest_priority = potential_task->priority;
             }
         }
-    }
 
-    if (current_task->state == RUNNING) {
-        current_task->state = READY; // tell scheduler that the old task is not running anymore
-                                     // when we move to dual core, this will be useful
+        // if this task was yielding, reset it to running
+        // this is done after the task is chosen, as if a high priority task yields
+        // we want to run a lower priority task before running the high priority one again
+        if (potential_task->state == YIELDING) {
+            potential_task->state = READY;
+        }
     }
 
     // get the next task with the highest priority
-    for (uint32_t t = 0; t < num_tasks; t++) {
+    for (uint32_t t = 1; t <= num_tasks; t++) {
         uint32_t potential_index = (t + current_task_index) % num_tasks;
 
         task_t *potential_task = &task_list[potential_index];
@@ -78,6 +114,13 @@ inline void raisePendSV() {
 void isr_systick(void) {
     LED_BLINK(LED_DEBUG_PIN);
 
+    total_ticks_executing++;
+    current_task->ticks_executing++;
+
+    if ((total_ticks_executing % 5000) == 0) {
+        calculateCPUUsage();
+    }
+
     // raise PendSV interrupt (handler in assembly!)
     raisePendSV();
 }
@@ -96,7 +139,7 @@ uint32_t startSysTick() {
     return 0;
 }
 
-uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint32_t priority) {
+uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
 
     if (num_tasks >= MAX_TASKS) {
         LED_FLAG(LED_WARN_PIN);
@@ -191,7 +234,7 @@ uint32_t startScheduler() {
     return 0;
 }
 
-// Functions available to Tasks
+/* Task Functions */
 
 void task_sleep_ms(uint32_t ms) {
     task_sleep_us(ms * 1000);
@@ -202,10 +245,13 @@ void task_sleep_us(uint64_t us) {
     current_task->state = WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
     _cpsie();
-    task_yield();
+    raisePendSV();
 }
 
 void task_yield() {
+    _cpsid();
+    current_task->state = YIELDING;
+    _cpsie();
     raisePendSV();
 }
 
