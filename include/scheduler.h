@@ -7,8 +7,8 @@
 #include <hardware/gpio.h>
 
 #define MAX_TASKS 8 // +1 for idle
-#define STACK_SIZE 32 // x4b
-#define LOOP_TIME 1 // ms
+#define STACK_SIZE 128 // x4b
+#define LOOP_TIME 0.01 // ms
 
 #define STACK_FILLER 0x1ABE11ED
 
@@ -39,7 +39,7 @@ enum task_state {
 
 typedef struct {
     uint32_t *stack_pointer;  // Current stack pointer, also points to the top of the stack
-    uint32_t stack[STACK_SIZE];
+    uint32_t *stack;
     uint32_t stack_size;      // Stack size
     uint32_t *stack_base;     // Base of stack memory
     uint32_t id;         // Task identifier

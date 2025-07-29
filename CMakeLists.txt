@@ -38,7 +38,10 @@ pico_sdk_init()
 # set(CMAKE_C_FLAGS_DEBUG "-Og")
 
 # Add executable. Default name is the project name, version 0.2
-add_executable(RP2040-Scheduler main.c scheduler.c context.s)
+add_executable(RP2040-Scheduler main.c scheduler.c context.s
+        include/channel.h
+        channel.c
+)
 
 pico_set_program_name(RP2040-Scheduler "RP2040-Scheduler")
 pico_set_program_version(RP2040-Scheduler "0.2")
@@ -50,7 +53,8 @@ pico_enable_stdio_usb(RP2040-Scheduler 0)
 # Add the standard library to the build
 target_link_libraries(RP2040-Scheduler
         pico_stdlib
-        hardware_pwm)
+        hardware_pwm
+        hardware_spi)
 
 # Add the standard include files to the build
 target_include_directories(RP2040-Scheduler PRIVATE

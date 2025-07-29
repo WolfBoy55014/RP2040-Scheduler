@@ -10,6 +10,7 @@
 #include "scheduler.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <sys/signal.h>
 
 #include "task.h"
@@ -33,7 +34,9 @@ uint8_t total_cpu_usage = 0;
 void calculateCPUUsage() {
     total_cpu_usage = 0;
 
+#ifdef PRINT
     printf("================ CPU Usage ================\n");
+#endif
 
     for (uint32_t t = 0; t < num_tasks; t++) {
         task_t *task = &task_list[t];
@@ -44,17 +47,22 @@ void calculateCPUUsage() {
         }
         task->ticks_executing = 0;
 
+#ifdef PRINT
         printf("PID: %u, USAGE: %u%%\n", task->id, task->cpu_usage);
+#endif
     }
-
+#ifdef PRINT
     printf("Total Usage: %u%%\n", total_cpu_usage);
     printf("===========================================\n\n");
+#endif
 
     total_ticks_executing = 0;
 }
 
 void calculateStackUsage() {
+#ifdef PRINT
     printf("=============== Stack Usage ===============\n");
+#endif
 
     for (uint32_t t = 0; t < num_tasks; t++) {
         task_t *task = &task_list[t];
@@ -73,11 +81,13 @@ void calculateStackUsage() {
             LED_FLAG(LED_WARN_PIN);
             task->state = SUSPENDED;
         }
-
+#ifdef PRINT
         printf("PID: %u, USAGE: %u%%\n", task->id, task->stack_usage);
+#endif
     }
-
+#ifdef PRINT
     printf("===========================================\n\n");
+#endif
 }
 
 void getNextTask() {
@@ -130,7 +140,7 @@ void getNextTask() {
     }
 
 #ifdef PRINT
-    printf("Loading task id: %u\n", current_task->id);
+    // printf("Loading task id: %u\n", current_task->id);
 #endif
     current_task->state = RUNNING; // tell scheduler that the new task is running
 }
@@ -145,7 +155,7 @@ void isr_systick(void) {
     total_ticks_executing++;
     current_task->ticks_executing++;
 
-    if ((total_ticks_executing % 1000) == 0) {
+    if ((total_ticks_executing % 100) == 0) {
         calculateCPUUsage();
         calculateStackUsage();
     }
@@ -189,6 +199,7 @@ uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     task->priority = priority;
     task->state = READY;
 
+    task->stack = (uint32_t*)malloc(STACK_SIZE * sizeof(uint32_t)); // dynamically get stack from heap
     task->stack_size = STACK_SIZE; // in 32bit words
     uint32_t *stack_top = task->stack; // lowest value in stack
     task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)

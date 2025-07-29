@@ -22,7 +22,7 @@ void digit_to_pins(bool *pins, uint8_t digit) {
             pins[1] = 1;
             pins[2] = 1;
             pins[4] = 1;
-            pins[5] = 1;
+            pins[7] = 1;
             pins[6] = 1;
             break;
         case 1:
@@ -31,82 +31,103 @@ void digit_to_pins(bool *pins, uint8_t digit) {
             break;
         case 2:
             pins[0] = 1;
-            pins[1] = 1;
-            pins[4] = 1;
-            pins[5] = 1;
+            pins[2] = 1;
+            pins[3] = 1;
             pins[7] = 1;
+            pins[6] = 1;
             break;
         case 3:
-            pins[1] = 1;
+            pins[0] = 1;
             pins[2] = 1;
+            pins[3] = 1;
             pins[4] = 1;
-            pins[5] = 1;
-            pins[7] = 1;
+            pins[6] = 1;
             break;
         case 4:
-            pins[2] = 1;
-            pins[4] = 1;
-            pins[6] = 1;
-            pins[7] = 1;
-            break;
-        case 5:
             pins[1] = 1;
             pins[2] = 1;
-            pins[5] = 1;
+            pins[3] = 1;
+            pins[4] = 1;
+            break;
+        case 5:
+            pins[0] = 1;
+            pins[1] = 1;
+            pins[3] = 1;
+            pins[4] = 1;
             pins[6] = 1;
-            pins[7] = 1;
             break;
         case 6:
             pins[0] = 1;
             pins[1] = 1;
-            pins[2] = 1;
-            pins[5] = 1;
+            pins[3] = 1;
+            pins[4] = 1;
             pins[6] = 1;
             pins[7] = 1;
             break;
         case 7:
+            pins[0] = 1;
             pins[2] = 1;
             pins[4] = 1;
-            pins[5] = 1;
             break;
         case 8:
             pins[0] = 1;
             pins[1] = 1;
             pins[2] = 1;
             pins[4] = 1;
-            pins[5] = 1;
+            pins[3] = 1;
             pins[6] = 1;
             pins[7] = 1;
             break;
         case 9:
+            pins[0] = 1;
             pins[1] = 1;
             pins[2] = 1;
             pins[4] = 1;
-            pins[5] = 1;
+            pins[3] = 1;
             pins[6] = 1;
-            pins[7] = 1;
             break;
         default: ;
     }
 }
 
-void task_one(uint32_t pid) {
-    bool digit_pins[8];
+void display_digit(uint32_t *pins, uint8_t number) {
+    bool values[8];
+    digit_to_pins(values, number);
 
-    for (uint32_t p = 12; p <= 19; p++) {
-        gpio_init(p);
-        gpio_set_dir(p, GPIO_OUT);
+    for (uint32_t p = 0; p < 8; p++) {
+        gpio_put(pins[p], values[p]);
+    }
+}
+
+void task_one(uint32_t pid) {
+    uint32_t segment_pins[8] = {18, 17, 16, 15, 14, 13, 12, 11};
+    uint32_t digit_pins[4] = {21, 19, 20, 10};
+
+    for (uint8_t i = 0; i < 4; i++) {
+        gpio_init(digit_pins[i]);
+        gpio_set_dir(digit_pins[i], GPIO_OUT);
+        gpio_set_pulls(digit_pins[i], false, true);
+        gpio_put(digit_pins[i], true);
+    }
+
+    for (uint32_t p = 0; p < 8; p++) {
+        gpio_init(segment_pins[p]);
+        gpio_set_dir(segment_pins[p], GPIO_OUT);
     }
 
     while (true) {
-        for (uint8_t i = 0; i <= 9; i++) {
-            digit_to_pins(digit_pins, i);
-
-            for (uint32_t p = 12; p <= 19; p++) {
-                gpio_put(p, digit_pins[p - 12]);
+        for (uint8_t number = 0; number <= 9; number++) {
+            for (uint32_t i = 0; i < 1000; i++) {
+                for (uint8_t digit = 0; digit < 4; digit++) {
+                    gpio_put(digit_pins[0], true);
+                    gpio_put(digit_pins[1], true);
+                    gpio_put(digit_pins[2], true);
+                    gpio_put(digit_pins[3], true);
+                    gpio_put(digit_pins[digit], false);
+                    display_digit(segment_pins, number);
+                    task_sleep_us(100);
+                }
             }
-
-            task_sleep_ms(500);
         }
     }
 }
@@ -120,12 +141,12 @@ void task_two(uint32_t pid) {
     pwm_set_enabled(slice_num, true);
 
     while (true) {
-        for (uint16_t i = 0; i < 127; i++) {
+        for (uint16_t i = 0; i < 31; i++) {
             pwm_set_gpio_level(pid, i);
             task_sleep_ms(20);
         }
 
-        for (uint16_t i = 127; i > 0; i--) {
+        for (uint16_t i = 31; i > 0; i--) {
             pwm_set_gpio_level(pid, i);
             task_sleep_ms(20);
         }
@@ -134,25 +155,26 @@ void task_two(uint32_t pid) {
     }
 }
 
-
 void recursive_function(int depth) {
-    char large_array[8]; // Allocate a local array to consume more stack per call
-    large_array[0] = 1;
+    uint32_t bread = 9;
+    bread++;
     if (depth > 0) {
+        task_sleep_ms(100);
         recursive_function(depth - 1);
     }
 }
 
 void stack_overflow_task(uint32_t pid) {
     recursive_function(1000); // Call with a large depth
+    while (true);
 }
 
 int main() {
     stdio_init_all();
 
-    addTask(task_one, 9, 2);
-    addTask(task_two, 10, 2);
-    // addTask(stack_overflow_task, 7, 1);
+    addTask(task_one, 10, 3);
+    addTask(task_two, 9, 2);
+    addTask(stack_overflow_task, 8, 2);
 
     startScheduler();
 
