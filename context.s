@@ -8,7 +8,7 @@
 .extern current_task
 .extern current_task_index
 .extern task_list
-.extern getNextTask
+.extern get_next_task
 
 .global _cpsid
 .type _cpsid, %function
@@ -65,7 +65,7 @@ isr_pendsv:
     mov sp, r3              // restore the original msp
 
 first_context_switch:       // skip here if this is the first time running, as there is nothing to save
-    blx getNextTask         // run `getNextTask` to get the next task
+    blx get_next_task       // run `get_next_task` to get the next task
 
     mov r3, sp              // get the msp (through sp) and save it for later
 

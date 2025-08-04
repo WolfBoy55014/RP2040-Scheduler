@@ -5,6 +5,7 @@
 #include <pico/stdlib.h>
 #include "scheduler.h"
 #include "task.h"
+#include "channel.h"
 
 void digit_to_pins(bool *pins, uint8_t digit) {
     pins[0] = 0;
@@ -99,9 +100,22 @@ void display_digit(uint32_t *pins, uint8_t number) {
     }
 }
 
-void task_one(uint32_t pid) {
+void display_number(uint32_t segment_pins[8], uint32_t digit_pins[4], uint16_t number) {
+    for (uint8_t digit = 0; digit < 4; digit++) {
+        gpio_put(digit_pins[0], true);
+        gpio_put(digit_pins[1], true);
+        gpio_put(digit_pins[2], true);
+        gpio_put(digit_pins[3], true);
+        display_digit(segment_pins, number % 10);
+        gpio_put(digit_pins[digit], false);
+        number /= 10;
+        task_sleep_us(100);
+    }
+}
+
+void task_display(uint32_t pid) {
     uint32_t segment_pins[8] = {18, 17, 16, 15, 14, 13, 12, 11};
-    uint32_t digit_pins[4] = {21, 19, 20, 10};
+    uint32_t digit_pins[4] = {10, 20, 19, 21};
 
     for (uint8_t i = 0; i < 4; i++) {
         gpio_init(digit_pins[i]);
@@ -115,19 +129,36 @@ void task_one(uint32_t pid) {
         gpio_set_dir(segment_pins[p], GPIO_OUT);
     }
 
+    uint16_t number = 0;
+
     while (true) {
-        for (uint8_t number = 0; number <= 9; number++) {
-            for (uint32_t i = 0; i < 1000; i++) {
-                for (uint8_t digit = 0; digit < 4; digit++) {
-                    gpio_put(digit_pins[0], true);
-                    gpio_put(digit_pins[1], true);
-                    gpio_put(digit_pins[2], true);
-                    gpio_put(digit_pins[3], true);
-                    gpio_put(digit_pins[digit], false);
-                    display_digit(segment_pins, number);
-                    task_sleep_us(100);
-                }
+        uint16_t connected_channels[NUM_CHANNELS];
+        if (get_connected_channels(connected_channels, sizeof(connected_channels) / sizeof(uint16_t)) > 0) {
+            if (channel_ready_to_read(connected_channels[0])) {
+                uint8_t data[2];
+                com_channel_read(connected_channels[0], data, 2);
+
+                number = data[0] | data[1] << 8;
             }
+        }
+
+        display_number(segment_pins, digit_pins, number);
+
+        task_yield();
+    }
+}
+
+void task_count(uint32_t pid) {
+    int32_t channel_id = com_channel_request(10);
+
+    while (true) {
+        for (uint16_t i = 0; i < 9999; ++i) {
+            if (channel_ready_to_write(channel_id)) {
+                uint8_t data[2] = {i, i >> 8};
+                com_channel_write(channel_id, data, 2);
+            }
+
+            task_sleep_ms(250);
         }
     }
 }
@@ -172,11 +203,12 @@ void stack_overflow_task(uint32_t pid) {
 int main() {
     stdio_init_all();
 
-    addTask(task_one, 10, 3);
-    addTask(task_two, 9, 2);
-    addTask(stack_overflow_task, 8, 2);
+    add_task(task_display, 10, 2);
+    add_task(task_count, 7, 2);
+    add_task(task_two, 9, 2);
+    add_task(stack_overflow_task, 8, 2);
 
-    startScheduler();
+    start_scheduler();
 
     while (true) {
         tight_loop_contents();

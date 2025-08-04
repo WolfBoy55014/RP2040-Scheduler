@@ -6,14 +6,13 @@
 #include <hardware/gpio.h>
 #include <hardware/clocks.h>
 #include <hardware/structs/systick.h>
-
-#include "scheduler.h"
-
 #include <math.h>
 #include <stdlib.h>
 #include <sys/signal.h>
 
+#include "scheduler.h"
 #include "task.h"
+#include "channel.h"
 
 /* Public Assembly Functions */
 extern void _cpsid();
@@ -31,7 +30,7 @@ volatile uint32_t scheduler_started = false;
 uint64_t total_ticks_executing = 0;
 uint8_t total_cpu_usage = 0;
 
-void calculateCPUUsage() {
+void calculate_cpu_usage() {
     total_cpu_usage = 0;
 
 #ifdef PRINT
@@ -59,7 +58,7 @@ void calculateCPUUsage() {
     total_ticks_executing = 0;
 }
 
-void calculateStackUsage() {
+void calculate_stack_usage() {
 #ifdef PRINT
     printf("=============== Stack Usage ===============\n");
 #endif
@@ -79,7 +78,7 @@ void calculateStackUsage() {
         // stack overflow ;)
         if (bytes_used >= STACK_SIZE) {
             LED_FLAG(LED_WARN_PIN);
-            task->state = SUSPENDED;
+            task->state = TASK_SUSPENDED;
         }
 #ifdef PRINT
         printf("PID: %u, USAGE: %u%%\n", task->id, task->stack_usage);
@@ -90,12 +89,12 @@ void calculateStackUsage() {
 #endif
 }
 
-void getNextTask() {
+void get_next_task() {
 
     uint8_t highest_priority = 0;
 
-    if (current_task->state == RUNNING) {
-        current_task->state = READY; // tell scheduler that the old task is not running anymore
+    if (current_task->state == TASK_RUNNING) {
+        current_task->state = TASK_READY; // tell scheduler that the old task is not running anymore
                                      // when we move to dual core, this will be useful
     }
 
@@ -105,14 +104,14 @@ void getNextTask() {
         task_t *potential_task = &task_list[potential_index];
 
         // see if the required time has passed for this task, if it was waiting
-        if (potential_task->state == WAIT_US) {
+        if (potential_task->state == TASK_WAIT_US) {
             if (absolute_time_diff_us(get_absolute_time(), potential_task->resume_us) <= 0) {
-                potential_task->state = READY;
+                potential_task->state = TASK_READY;
             }
         }
 
         // get the highest priority of the ready tasks
-        if (potential_task->state == READY) {
+        if (potential_task->state == TASK_READY) {
             if (potential_task->priority > highest_priority) {
                 highest_priority = potential_task->priority;
             }
@@ -121,8 +120,8 @@ void getNextTask() {
         // if this task was yielding, reset it to running
         // this is done after the task is chosen, as if a high priority task yields
         // we want to run a lower priority task before running the high priority one again
-        if (potential_task->state == YIELDING) {
-            potential_task->state = READY;
+        if (potential_task->state == TASK_YIELDING) {
+            potential_task->state = TASK_READY;
         }
     }
 
@@ -132,7 +131,7 @@ void getNextTask() {
 
         task_t *potential_task = &task_list[potential_index];
 
-        if (potential_task->state == READY && potential_task->priority == highest_priority) {
+        if (potential_task->state == TASK_READY && potential_task->priority == highest_priority) {
             current_task_index = potential_index;
             current_task = potential_task;
             break;
@@ -142,10 +141,10 @@ void getNextTask() {
 #ifdef PRINT
     // printf("Loading task id: %u\n", current_task->id);
 #endif
-    current_task->state = RUNNING; // tell scheduler that the new task is running
+    current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
 }
 
-inline void raisePendSV() {
+inline void raise_pendsv() {
     *(volatile uint32_t *)(0xe0000000|M0PLUS_ICSR_OFFSET) = (1L<<28);
 }
 
@@ -156,15 +155,15 @@ void isr_systick(void) {
     current_task->ticks_executing++;
 
     if ((total_ticks_executing % 100) == 0) {
-        calculateCPUUsage();
-        calculateStackUsage();
+        calculate_cpu_usage();
+        calculate_stack_usage();
     }
 
     // raise PendSV interrupt (handler in assembly!)
-    raisePendSV();
+    raise_pendsv();
 }
 
-uint32_t startSysTick() {
+uint32_t start_systick() {
     uint32_t clock_hz = clock_get_hz(clk_sys);
     uint32_t ticks = clock_hz / 1000 * LOOP_TIME;     // loop time in ms
 
@@ -178,7 +177,7 @@ uint32_t startSysTick() {
     return 0;
 }
 
-uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
+uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
 
     if (num_tasks >= MAX_TASKS) {
         LED_FLAG(LED_WARN_PIN);
@@ -197,7 +196,7 @@ uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     task_t *task = &task_list[num_tasks];
     task->id = id;
     task->priority = priority;
-    task->state = READY;
+    task->state = TASK_READY;
 
     task->stack = (uint32_t*)malloc(STACK_SIZE * sizeof(uint32_t)); // dynamically get stack from heap
     task->stack_size = STACK_SIZE; // in 32bit words
@@ -243,19 +242,19 @@ uint32_t addTask(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     return 0;
 }
 
-void idleTask(uint32_t pid) {
+void idle_task(uint32_t pid) {
     while (true) {
         tight_loop_contents();
     }
 }
 
-uint32_t startScheduler() {
+uint32_t start_scheduler() {
 
     LED_INIT(LED_DEBUG_PIN);
     LED_INIT(LED_WARN_PIN);
     LED_INIT(LED_FATAL_PIN);
 
-    addTask(idleTask, 0, 0);
+    add_task(idle_task, 0, 0);
 
     if (num_tasks == 0) {
         LED_FLAG(LED_WARN_PIN);
@@ -270,7 +269,7 @@ uint32_t startScheduler() {
 
     PRINT_DEBUG("Adding Timer...\n");
 
-    startSysTick();
+    start_systick();
 
     PRINT_DEBUG("Timer Started!\n");
 
@@ -287,16 +286,16 @@ void task_sleep_ms(uint32_t ms) {
 
 void task_sleep_us(uint64_t us) {
     _cpsid();
-    current_task->state = WAIT_US;
+    current_task->state = TASK_WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
     _cpsie();
-    raisePendSV();
+    raise_pendsv();
 }
 
 void task_yield() {
     _cpsid();
-    current_task->state = YIELDING;
+    current_task->state = TASK_YIELDING;
     _cpsie();
-    raisePendSV();
+    raise_pendsv();
 }
 
