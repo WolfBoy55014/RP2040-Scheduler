@@ -1,38 +1,12 @@
 //
-// Created by wolfboy on 7/29/25.
+// Created by wolfboy on 8/7/25.
 //
 
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
-#include <stdint.h>
-
-#include "scheduler.h"
-
 #define NUM_CHANNELS 32 // uint16_t
 #define CHANNEL_SIZE 16
-
-typedef enum {
-    CHANNEL_FREE,
-    CHANNEL_ALLOCATED,
-    CHANNEL_CONNECTED
-} channel_state_t;
-
-typedef struct {
-    uint8_t bytes[CHANNEL_SIZE];
-    uint8_t full;
-    uint16_t count;
-} channel_fifo_t;
-
-typedef struct {
-    task_t *owner;
-    task_t *partner;
-    channel_fifo_t fifo_rx;
-    channel_fifo_t fifo_tx;
-    channel_state_t state;
-} com_channel_t;
-
-extern com_channel_t com_channels[NUM_CHANNELS];
 
 /**
  * @brief Check if the current task owns a channel or not

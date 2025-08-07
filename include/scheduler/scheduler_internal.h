@@ -1,7 +1,12 @@
-#ifndef SCHEDULER_H
-#define SCHEDULER_H
+//
+// Created by wolfboy on 8/6/25.
+//
 
-#include <pico/types.h>
+#ifndef SCHEDULER_INTERNAL_H
+#define SCHEDULER_INTERNAL_H
+
+#include "hardware/platform_defs.h"
+#include "pico/types.h"
 
 #define MAX_TASKS 8 // +1 for idle
 #define STACK_SIZE 128 // x4b
@@ -18,6 +23,8 @@
 #define LED_FLAG(pin) gpio_put(pin, true)
 #define LED_BLINK(pin) gpio_put(pin, !gpio_get(pin));
 
+#define CORE_NUM get_core_num()
+
 #ifdef PRINT
 #define PRINT_WARNING(msg) printf(msg)
 #define PRINT_DEBUG(msg) printf(msg)
@@ -27,6 +34,7 @@
 #endif
 
 typedef enum {
+    TASK_FREE,
     TASK_RUNNING,
     TASK_READY,
     TASK_SUSPENDED,
@@ -48,19 +56,25 @@ typedef struct {
     uint8_t stack_usage;        // Stack utilization (0 - 100)
 } task_t;
 
+typedef struct {
+    task_t *current_task;
+    uint32_t current_task_index;
+    uint32_t started;
+    uint64_t total_ticks_executing;
+    uint8_t total_cpu_usage;
+} scheduler_t;
+
 /* Scheduler Variables */
+extern volatile scheduler_t schedulers[NUM_CORES];
 extern volatile uint32_t num_tasks;
-extern volatile task_t *current_task;
-extern volatile uint32_t current_task_index;
-extern volatile task_t task_list[MAX_TASKS];
-extern volatile uint32_t scheduler_started;
+extern volatile task_t tasks[MAX_TASKS];
 
-/* CPU Usage Variables */
-extern uint64_t total_ticks_executing;
-extern uint8_t total_cpu_usage;
+uint32_t start_scheduler_this_core();
+scheduler_t *get_scheduler();
+task_t *get_current_task();
+bool is_scheduler_started();
+void set_scheduler_started(bool started);
+void get_next_task();
+void raise_pendsv();
 
-/* Basic Scheduler Functions */
-uint32_t start_scheduler();
-uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) ;
-
-#endif //SCHEDULER_H
+#endif //SCHEDULER_INTERNAL_H

@@ -1,0 +1,15 @@
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
+
+#include <stdint.h>
+
+/* Basic Scheduler Functions */
+uint32_t start_kernel();
+uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority);
+
+// task management
+void task_sleep_ms(uint32_t ms);
+void task_sleep_us(uint64_t us);
+void task_yield();
+
+#endif //SCHEDULER_H

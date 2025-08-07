@@ -2,9 +2,9 @@
 // Created by wolfboy on 7/29/25.
 //
 
+#include "channel_internal.h"
 #include "channel.h"
 #include "hardware/sync.h"
-#include "task.h"
 
 com_channel_t com_channels[NUM_CHANNELS];
 
@@ -27,7 +27,7 @@ bool is_owner_of_channel(uint16_t channel_id) {
 
     // TODO Should use scheduler spinlock when they are implemented
     //   vvvv
-    bool is_owner = current_task == channel->owner;
+    bool is_owner = get_current_task() == channel->owner;
 
     restore_interrupts(saved_irq);
     return is_owner;
@@ -52,6 +52,7 @@ bool is_connected_to_channel(uint16_t channel_id) {
 
     // TODO Should use scheduler spinlock when they are implemented
     //   vvvv
+    task_t *current_task = get_current_task();
     bool is_connected = (current_task == channel->owner | current_task == channel->partner);
 
     restore_interrupts(saved_irq);
@@ -91,6 +92,7 @@ int32_t com_channel_request(uint32_t with_pid) {
     // check if `with_pid` matches the current (callee's) pid
     // TODO Should use scheduler spinlock when they are implemented
     //   vvvv
+    task_t *current_task = get_current_task();
     if (current_task->id == with_pid) {
         restore_interrupts(saved_irq);
         return -3;
@@ -100,8 +102,8 @@ int32_t com_channel_request(uint32_t with_pid) {
     // TODO Should use scheduler spinlock when they are implemented
     //   vvvv
     for (uint32_t t = 0; t < num_tasks; t++) {
-        if (task_list[t].id == with_pid) {
-            with = &task_list[t];
+        if (tasks[t].id == with_pid) {
+            with = &tasks[t];
             break;
         }
     }

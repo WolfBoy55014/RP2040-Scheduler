@@ -38,9 +38,10 @@ pico_sdk_init()
 # set(CMAKE_C_FLAGS_DEBUG "-Og")
 
 # Add executable. Default name is the project name, version 0.2
-add_executable(RP2040-Scheduler main.c scheduler.c context.s
-        include/channel.h
-        channel.c
+add_executable(RP2040-Scheduler main.c
+        src/scheduler.c
+        src/context.s
+        src/channel.c
 )
 
 pico_set_program_name(RP2040-Scheduler "RP2040-Scheduler")
@@ -60,6 +61,8 @@ target_link_libraries(RP2040-Scheduler
 target_include_directories(RP2040-Scheduler PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/include/
+        ${CMAKE_CURRENT_LIST_DIR}/include/scheduler/
+        ${CMAKE_CURRENT_LIST_DIR}/include/channel/
 )
 
 pico_add_extra_outputs(RP2040-Scheduler)

@@ -3,9 +3,8 @@
 #include <hardware/structs/io_bank0.h>
 #include <stdio.h>
 #include <pico/stdlib.h>
-#include "scheduler.h"
-#include "task.h"
-#include "channel.h"
+#include "include/scheduler/scheduler.h"
+#include "include/channel/channel_internal.h"
 
 void digit_to_pins(bool *pins, uint8_t digit) {
     pins[0] = 0;
@@ -158,7 +157,7 @@ void task_count(uint32_t pid) {
                 com_channel_write(channel_id, data, 2);
             }
 
-            task_sleep_ms(250);
+            task_sleep_ms(100);
         }
     }
 }
@@ -208,7 +207,7 @@ int main() {
     add_task(task_two, 9, 2);
     add_task(stack_overflow_task, 8, 2);
 
-    start_scheduler();
+    start_scheduler_this_core();
 
     while (true) {
         tight_loop_contents();
