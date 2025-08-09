@@ -5,12 +5,17 @@
 #include "pico/time.h"
 #include "hardware/sync.h"
 #include "hardware/structs/systick.h"
+#include "pico/multicore.h"
 
 #include "scheduler_internal.h"
 #include "scheduler.h"
 
+#include <stdio.h>
+
+#include "spinlock_internal.h"
+
 /* Scheduler Variables */
-volatile scheduler_t schedulers[NUM_CORES];
+volatile scheduler_t schedulers[CORE_COUNT];
 volatile uint32_t num_tasks;
 volatile task_t tasks[MAX_TASKS];
 
@@ -35,6 +40,7 @@ void set_scheduler_started(bool started) {
 }
 
 void calculate_cpu_usage(scheduler_t *scheduler) {
+    const uint32_t saved_irq = scheduler_spin_lock();
     scheduler->total_cpu_usage = 0;
 
 #ifdef PRINT
@@ -45,7 +51,7 @@ void calculate_cpu_usage(scheduler_t *scheduler) {
         task_t *task = &tasks[t];
         uint8_t cpu_usage = (task->ticks_executing * 100) / scheduler->total_ticks_executing;
         task->cpu_usage = cpu_usage;
-        if (task->id != 0) {
+        if (task->priority != 0) {
             scheduler->total_cpu_usage += cpu_usage;
         }
         task->ticks_executing = 0;
@@ -55,14 +61,16 @@ void calculate_cpu_usage(scheduler_t *scheduler) {
 #endif
     }
 #ifdef PRINT
-    printf("Total Usage: %u%%\n", total_cpu_usage);
+    printf("Total Usage: %u%%\n", scheduler->total_cpu_usage);
     printf("===========================================\n\n");
 #endif
 
     scheduler->total_ticks_executing = 0;
+    scheduler_spin_unlock(saved_irq);
 }
 
 void calculate_stack_usage(scheduler_t *scheduler) {
+    const uint32_t saved_irq = scheduler_spin_lock();
 #ifdef PRINT
     printf("=============== Stack Usage ===============\n");
 #endif
@@ -91,9 +99,15 @@ void calculate_stack_usage(scheduler_t *scheduler) {
 #ifdef PRINT
     printf("===========================================\n\n");
 #endif
+    scheduler_spin_unlock(saved_irq);
 }
 
 void get_next_task() {
+    const uint32_t saved_irq = scheduler_spin_lock();
+#ifdef PRINT
+    uint64_t start_time = time_us_64();
+#endif
+
     // TODO scheduler spinlock
     scheduler_t *scheduler = get_scheduler();
 
@@ -142,12 +156,16 @@ void get_next_task() {
             scheduler->current_task = potential_task;
             break;
         }
+#ifdef PRINT
+        // printf("Finding next task took: %llus\n", time_us_64() - start_time);
+#endif
     }
 
 #ifdef PRINT
     // printf("Loading task id: %u\n", current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
+    scheduler_spin_unlock(saved_irq);
 }
 
 void isr_hardfault(void) {
@@ -174,7 +192,7 @@ void isr_systick(void) {
     raise_pendsv();
 }
 
-uint32_t start_systick() {
+int32_t start_systick() {
     uint32_t clock_hz = clock_get_hz(clk_sys);
     uint32_t ticks = clock_hz / 1000 * LOOP_TIME;     // loop time in ms
 
@@ -188,19 +206,21 @@ uint32_t start_systick() {
     return 0;
 }
 
-uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
+int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
+    const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
         LED_FLAG(LED_WARN_PIN);
         PRINT_WARNING("No more open tasks.\n");
+        scheduler_spin_unlock(saved_irq);
         return -1; // no more slots empty
     }
 
-    // TODO scheduler spinlock
     for (int i = 0; i < num_tasks; i++) {
         if (tasks[i].id == id && tasks[i].state != TASK_FREE) {
             LED_FLAG(LED_WARN_PIN);
             PRINT_WARNING("Task id already taken.\n");
+            scheduler_spin_unlock(saved_irq);
             return -2; // id taken
         }
     }
@@ -216,6 +236,7 @@ uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority
     }
 
     if (task == NULL) {
+        scheduler_spin_unlock(saved_irq);
         return -1; // mo more room for tasks
     }
 
@@ -235,7 +256,7 @@ uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority
 
     // save current stack pointer position
     task->stack_pointer = task->stack_base;
-    
+
     // set up initial stack frame for context switching
     *(task->stack_pointer--) = (uint32_t)0x01000000;  // PSR (Thumb bit set)
     *(task->stack_pointer--) = (uint32_t)task_function;  // PC (where to start)
@@ -264,26 +285,27 @@ uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority
     *(task->stack_pointer) = 8;             // R8
 
     num_tasks++;
+    scheduler_spin_unlock(saved_irq);
     return 0;
 }
 
 void idle_task(uint32_t pid) {
     while (true) {
-        tight_loop_contents();
+        __wfi();
     }
 }
 
-uint32_t start_scheduler_this_core() {
+void start_scheduler_this_core() {
     LED_INIT(LED_DEBUG_PIN);
     LED_INIT(LED_WARN_PIN);
     LED_INIT(LED_FATAL_PIN);
 
-    add_task(idle_task, 0, 0);
+    add_task(idle_task, 0 + CORE_NUM, 0);
 
     if (num_tasks == 0) {
         LED_FLAG(LED_WARN_PIN);
         PRINT_WARNING("No tasks to run\n");
-        return -1; // no tasks
+        return; // no tasks
     }
 
     PRINT_DEBUG("Starting Scheduler\n");
@@ -295,11 +317,13 @@ uint32_t start_scheduler_this_core() {
     start_systick();
 
     PRINT_DEBUG("Timer Started!\n");
-
-    return 0;
 }
 
-uint32_t start_kernel() {
+int32_t start_kernel() {
+    init_spin_locks();
+#if CORE_COUNT > 1
+    multicore_launch_core1(start_scheduler_this_core);
+#endif
     start_scheduler_this_core();
     set_spsel(2);
     return 0;
@@ -312,21 +336,21 @@ void task_sleep_ms(uint32_t ms) {
 }
 
 void task_sleep_us(uint64_t us) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = scheduler_spin_lock();
     // TODO task spinlock
     task_t *current_task = get_current_task();
     current_task->state = TASK_WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
-    restore_interrupts(saved_irq);
+    scheduler_spin_unlock(saved_irq);
     raise_pendsv();
 }
 
 void task_yield() {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = scheduler_spin_lock();
     // TODO task spinlock
     task_t *current_task = get_current_task();
     current_task->state = TASK_YIELDING;
-    restore_interrupts(saved_irq);
+    scheduler_spin_unlock(saved_irq);
     raise_pendsv();
 }
 

@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 /* Basic Scheduler Functions */
-uint32_t start_kernel();
-uint32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority);
+int32_t start_kernel();
+int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority);
 
 // task management
 void task_sleep_ms(uint32_t ms);

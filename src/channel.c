@@ -4,63 +4,57 @@
 
 #include "channel_internal.h"
 #include "channel.h"
+
+#include "spinlock_internal.h"
 #include "hardware/sync.h"
 
 com_channel_t com_channels[NUM_CHANNELS];
 
-// TODO Should use channel spinlock when they are implemented
-//   vvvv
 bool is_owner_of_channel(uint16_t channel_id) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = channel_spin_lock();
 
     if (channel_id >= NUM_CHANNELS) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
     com_channel_t *channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
-    // TODO Should use scheduler spinlock when they are implemented
-    //   vvvv
     bool is_owner = get_current_task() == channel->owner;
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return is_owner;
 }
 
-// TODO Should use channel spinlock when they are implemented
-//   vvvv
 bool is_connected_to_channel(uint16_t channel_id) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = channel_spin_lock();
 
     if (channel_id >= NUM_CHANNELS) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
     com_channel_t *channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
-    // TODO Should use scheduler spinlock when they are implemented
-    //   vvvv
     task_t *current_task = get_current_task();
     bool is_connected = (current_task == channel->owner | current_task == channel->partner);
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return is_connected;
 }
 
 uint32_t get_connected_channels(uint16_t *channel_ids, uint16_t size) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = save_and_disable_interrupts();
     uint32_t num_connected = 0;
 
     for (uint32_t c = 0; c < NUM_CHANNELS; c++) {
@@ -80,39 +74,39 @@ uint32_t get_connected_channels(uint16_t *channel_ids, uint16_t size) {
     return num_connected;
 }
 
-// TODO Should use channel spinlock when they are implemented
-//   vvvv
 int32_t com_channel_request(uint32_t with_pid) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = channel_spin_lock();
 
     task_t *with = NULL;
     com_channel_t *channel = NULL;
     int32_t channel_id = -1;
 
     // check if `with_pid` matches the current (callee's) pid
-    // TODO Should use scheduler spinlock when they are implemented
-    //   vvvv
     task_t *current_task = get_current_task();
     if (current_task->id == with_pid) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return -3;
     }
 
+    channel_spin_unlock_unsafe();
+
     // find task with specified pid
-    // TODO Should use scheduler spinlock when they are implemented
-    //   vvvv
+    scheduler_spin_lock_unsafe();
     for (uint32_t t = 0; t < num_tasks; t++) {
         if (tasks[t].id == with_pid) {
             with = &tasks[t];
             break;
         }
     }
+    scheduler_spin_unlock_unsafe();
 
     // if we could not find the task with `with_pid` return
     if (with == NULL) {
         restore_interrupts(saved_irq);
         return -2;
     }
+
+    channel_spin_lock_unsafe();
 
     // check for free channels
     for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
@@ -125,14 +119,12 @@ int32_t com_channel_request(uint32_t with_pid) {
 
     // if there are none, return
     if (channel == NULL) {
-        restore_interrupts(saved_irq);
-        return  -1;
+        channel_spin_unlock(saved_irq);
+        return -1;
     }
 
     channel->state = CHANNEL_ALLOCATED;
 
-    // TODO Should use scheduler spinlock when they are implemented
-    //   vvvv
     channel->owner = current_task;
     channel->partner = with;
 
@@ -149,12 +141,12 @@ int32_t com_channel_request(uint32_t with_pid) {
 
     channel->state = CHANNEL_CONNECTED;
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return channel_id;
 }
 
 int32_t com_channel_free(uint16_t channel_id) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = save_and_disable_interrupts();
 
     // check if channel exists
     if (channel_id >= NUM_CHANNELS) {
@@ -168,12 +160,11 @@ int32_t com_channel_free(uint16_t channel_id) {
         return -2;
     }
 
-    // TODO Should use channel spinlock when they are implemented
-    //   vvvv
+    channel_spin_lock_unsafe();
     com_channel_t *channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return -3;
     }
 
@@ -192,20 +183,22 @@ int32_t com_channel_free(uint16_t channel_id) {
     // free channel
     channel->state = CHANNEL_FREE;
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return channel_id;
 }
 
 bool channel_ready_to_write(uint16_t channel_id) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
         restore_interrupts(saved_irq);
         return false;
     }
 
+    channel_spin_lock_unsafe();
     com_channel_t *channel = &com_channels[channel_id];
     channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_tx;
@@ -213,19 +206,18 @@ bool channel_ready_to_write(uint16_t channel_id) {
         fifo = &channel->fifo_rx;
     }
 
-    // TODO Should use channel spinlock when they are implemented
-    //   vvvv
+    channel_spin_lock_unsafe();
     if (fifo->full) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return true;
 }
 
 int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t size) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (size > CHANNEL_SIZE) {
         restore_interrupts(saved_irq);
@@ -237,8 +229,10 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t si
         return -2;
     }
 
+    channel_spin_lock_unsafe();
     com_channel_t *channel = &com_channels[channel_id];
     channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_tx;
@@ -246,8 +240,7 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t si
         fifo = &channel->fifo_rx;
     }
 
-    // TODO Should use channel spinlock when they are implemented
-    //   vvvv
+    channel_spin_lock_unsafe();
     for (int b = 0; b < size; b++) {
         fifo->bytes[b] = bytes[b];
     }
@@ -255,20 +248,22 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t si
     fifo->count = size;
     fifo->full = 1;
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return size;
 }
 
 bool channel_ready_to_read(uint16_t channel_id) {
-    uint32_t saved_irq = save_and_disable_interrupts();
+    const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
         restore_interrupts(saved_irq);
         return false;
     }
 
+    channel_spin_lock_unsafe();
     com_channel_t *channel = &com_channels[channel_id];
     channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
@@ -276,14 +271,13 @@ bool channel_ready_to_read(uint16_t channel_id) {
         fifo = &channel->fifo_tx;
     }
 
-    // TODO Should use channel spinlock when they are implemented
-    //   vvvv
+    channel_spin_lock_unsafe();
     if (!fifo->full) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return false;
     }
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return true;
 }
 
@@ -295,8 +289,10 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint32_t size) {
         return -2;
     }
 
+    channel_spin_lock_unsafe();
     com_channel_t *channel = &com_channels[channel_id];
     channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
@@ -304,12 +300,11 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint32_t size) {
         fifo = &channel->fifo_tx;
     }
 
-    // TODO Should use channel spinlock when they are implemented
-    //   vvvv
+    channel_spin_lock_unsafe();
     uint32_t fifo_count = fifo->count;
 
     if (size < fifo_count) {
-        restore_interrupts(saved_irq);
+        channel_spin_unlock(saved_irq);
         return -1;
     }
 
@@ -320,7 +315,7 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint32_t size) {
     fifo->count = 0;
     fifo->full = 0;
 
-    restore_interrupts(saved_irq);
+    channel_spin_unlock(saved_irq);
     return fifo_count;
 }
 

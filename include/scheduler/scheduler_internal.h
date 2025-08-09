@@ -5,25 +5,25 @@
 #ifndef SCHEDULER_INTERNAL_H
 #define SCHEDULER_INTERNAL_H
 
-#include "hardware/platform_defs.h"
 #include "pico/types.h"
 
-#define MAX_TASKS 8 // +1 for idle
+#define CORE_NUM get_core_num()
+#define CORE_COUNT 2
+
+#define MAX_TASKS  8   // +1 for idle
 #define STACK_SIZE 128 // x4b
-#define LOOP_TIME 0.1 // ms
+#define LOOP_TIME  1 // ms
 
 #define STACK_FILLER 0x1ABE11ED
 
 #define LED_DEBUG_PIN 25
 #define LED_WARN_PIN  5
 #define LED_FATAL_PIN 6
-// #define PRINT
+#define PRINT
 
 #define LED_INIT(pin) gpio_init(pin); gpio_set_dir(pin, GPIO_OUT); gpio_put(pin, false)
 #define LED_FLAG(pin) gpio_put(pin, true)
 #define LED_BLINK(pin) gpio_put(pin, !gpio_get(pin));
-
-#define CORE_NUM get_core_num()
 
 #ifdef PRINT
 #define PRINT_WARNING(msg) printf(msg)
@@ -65,11 +65,11 @@ typedef struct {
 } scheduler_t;
 
 /* Scheduler Variables */
-extern volatile scheduler_t schedulers[NUM_CORES];
+extern volatile scheduler_t schedulers[CORE_COUNT];
 extern volatile uint32_t num_tasks;
 extern volatile task_t tasks[MAX_TASKS];
 
-uint32_t start_scheduler_this_core();
+void start_scheduler_this_core();
 scheduler_t *get_scheduler();
 task_t *get_current_task();
 bool is_scheduler_started();

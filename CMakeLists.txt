@@ -42,6 +42,7 @@ add_executable(RP2040-Scheduler main.c
         src/scheduler.c
         src/context.s
         src/channel.c
+        src/spinlock.c
 )
 
 pico_set_program_name(RP2040-Scheduler "RP2040-Scheduler")
@@ -55,7 +56,9 @@ pico_enable_stdio_usb(RP2040-Scheduler 0)
 target_link_libraries(RP2040-Scheduler
         pico_stdlib
         hardware_pwm
-        hardware_spi)
+        hardware_spi
+        pico_multicore
+)
 
 # Add the standard include files to the build
 target_include_directories(RP2040-Scheduler PRIVATE
@@ -63,6 +66,7 @@ target_include_directories(RP2040-Scheduler PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include/
         ${CMAKE_CURRENT_LIST_DIR}/include/scheduler/
         ${CMAKE_CURRENT_LIST_DIR}/include/channel/
+        ${CMAKE_CURRENT_LIST_DIR}/include/spinlock/
 )
 
 pico_add_extra_outputs(RP2040-Scheduler)
