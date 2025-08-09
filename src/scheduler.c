@@ -322,6 +322,7 @@ void start_scheduler_this_core() {
 int32_t start_kernel() {
     init_spin_locks();
 #if CORE_COUNT > 1
+    multicore_reset_core1();
     multicore_launch_core1(start_scheduler_this_core);
 #endif
     start_scheduler_this_core();

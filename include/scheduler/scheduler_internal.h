@@ -19,7 +19,7 @@
 #define LED_DEBUG_PIN 25
 #define LED_WARN_PIN  5
 #define LED_FATAL_PIN 6
-#define PRINT
+// #define PRINT
 
 #define LED_INIT(pin) gpio_init(pin); gpio_set_dir(pin, GPIO_OUT); gpio_put(pin, false)
 #define LED_FLAG(pin) gpio_put(pin, true)
