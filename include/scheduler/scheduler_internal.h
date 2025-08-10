@@ -39,7 +39,8 @@ typedef enum {
     TASK_READY,
     TASK_SUSPENDED,
     TASK_WAIT_US,
-    TASK_YIELDING
+    TASK_YIELDING,
+    TASK_DEAD
 } task_state_t;
 
 typedef struct {

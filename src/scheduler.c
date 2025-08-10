@@ -46,7 +46,6 @@ void calculate_cpu_usage(scheduler_t *scheduler) {
 #ifdef PRINT
     printf("================ CPU Usage ================\n");
 #endif
-    // TODO scheduler spinlock
     for (uint32_t t = 0; t < num_tasks; t++) {
         task_t *task = &tasks[t];
         uint8_t cpu_usage = (task->ticks_executing * 100) / scheduler->total_ticks_executing;
@@ -74,7 +73,6 @@ void calculate_stack_usage(scheduler_t *scheduler) {
 #ifdef PRINT
     printf("=============== Stack Usage ===============\n");
 #endif
-    // TODO scheduler spinlock
     for (uint32_t t = 0; t < num_tasks; t++) {
         task_t *task = &tasks[t];
         uint32_t bytes_used = 0;
@@ -108,7 +106,6 @@ void get_next_task() {
     uint64_t start_time = time_us_64();
 #endif
 
-    // TODO scheduler spinlock
     scheduler_t *scheduler = get_scheduler();
 
     uint8_t highest_priority = 0;
@@ -122,6 +119,12 @@ void get_next_task() {
         uint32_t potential_index = (t + scheduler->current_task_index) % num_tasks;
 
         task_t *potential_task = &tasks[potential_index];
+
+        // if task is dead, remove it
+        if (potential_task->state == TASK_DEAD) {
+            free(potential_task->stack);
+            potential_task->state = TASK_FREE;
+        }
 
         // see if the required time has passed for this task, if it was waiting
         if (potential_task->state == TASK_WAIT_US) {
@@ -206,6 +209,18 @@ int32_t start_systick() {
     return 0;
 }
 
+void remove_task(task_t *task) {
+    const uint32_t saved_irq = scheduler_spin_lock();
+
+    task->state = TASK_DEAD;
+    scheduler_spin_unlock(saved_irq);
+    raise_pendsv();
+}
+
+void task_return() {
+    remove_task(get_current_task());
+}
+
 int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
@@ -240,9 +255,12 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
         return -1; // mo more room for tasks
     }
 
+    task->stack_usage = 0;
+    task->cpu_usage = 0;
+    task->ticks_executing = 0;
+
     task->id = id;
     task->priority = priority;
-    task->state = TASK_READY;
 
     task->stack = (uint32_t*)malloc(STACK_SIZE * sizeof(uint32_t)); // dynamically get stack from heap
     task->stack_size = STACK_SIZE; // in 32bit words
@@ -260,7 +278,7 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     // set up initial stack frame for context switching
     *(task->stack_pointer--) = (uint32_t)0x01000000;  // PSR (Thumb bit set)
     *(task->stack_pointer--) = (uint32_t)task_function;  // PC (where to start)
-    *(task->stack_pointer--) = (uint32_t)task_function;  // LR (return address)
+    *(task->stack_pointer--) = (uint32_t)task_return;  // LR (return address)
     *(task->stack_pointer--) = 12;          // R12
     *(task->stack_pointer--) = 3;           // R3
     *(task->stack_pointer--) = 2;           // R2
@@ -283,6 +301,8 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     *(task->stack_pointer--) = 10;          // R10
     *(task->stack_pointer--) = 9;           // R9
     *(task->stack_pointer) = 8;             // R8
+
+    task->state = TASK_READY;
 
     num_tasks++;
     scheduler_spin_unlock(saved_irq);
@@ -338,7 +358,6 @@ void task_sleep_ms(uint32_t ms) {
 
 void task_sleep_us(uint64_t us) {
     const uint32_t saved_irq = scheduler_spin_lock();
-    // TODO task spinlock
     task_t *current_task = get_current_task();
     current_task->state = TASK_WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
@@ -348,7 +367,6 @@ void task_sleep_us(uint64_t us) {
 
 void task_yield() {
     const uint32_t saved_irq = scheduler_spin_lock();
-    // TODO task spinlock
     task_t *current_task = get_current_task();
     current_task->state = TASK_YIELDING;
     scheduler_spin_unlock(saved_irq);
