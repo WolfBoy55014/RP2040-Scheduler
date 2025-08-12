@@ -10,8 +10,8 @@
 #define CORE_NUM get_core_num()
 #define CORE_COUNT 2
 
-#define MAX_TASKS  8   // +1 for idle
-#define STACK_SIZE 128 // x4b
+#define MAX_TASKS  8   // +2 for idle
+#define STACK_SIZE 256 // x4b
 #define LOOP_TIME  1 // ms
 
 #define STACK_FILLER 0x1ABE11ED
