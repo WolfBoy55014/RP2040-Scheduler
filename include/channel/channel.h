@@ -5,9 +5,6 @@
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
-#define NUM_CHANNELS 32 // uint16_t
-#define CHANNEL_SIZE 16
-
 /**
  * @brief Check if the current task owns a channel or not
  * @param channel_id ID of the channel

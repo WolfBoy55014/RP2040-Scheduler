@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
@@ -9,10 +10,8 @@
 
 #include "scheduler_internal.h"
 #include "scheduler.h"
-
-#include <stdio.h>
-
 #include "spinlock_internal.h"
+#include "kernel_config.h"
 
 /* Scheduler Variables */
 volatile scheduler_t schedulers[CORE_COUNT];
@@ -87,7 +86,6 @@ void calculate_stack_usage(scheduler_t *scheduler) {
 
         // stack overflow ;)
         if (bytes_used >= STACK_SIZE && task->state != TASK_RUNNING) {
-            LED_FLAG(LED_WARN_PIN);
             task->state = TASK_SUSPENDED;
         }
 #ifdef PRINT
@@ -172,7 +170,16 @@ void get_next_task() {
 }
 
 void isr_hardfault(void) {
-    LED_FLAG(LED_FATAL_PIN);
+#ifdef STATUS_LED
+    gpio_init(STATUS_LED_PIN);
+    gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
+    while (true) {
+        gpio_put(STATUS_LED_PIN, true);
+        sleep_ms(1000);
+        gpio_put(STATUS_LED_PIN, false);
+        sleep_ms(1000);
+    }
+#endif
 }
 
 void raise_pendsv() {
@@ -180,7 +187,9 @@ void raise_pendsv() {
 }
 
 void isr_systick(void) {
-    LED_BLINK(LED_DEBUG_PIN);
+#ifdef STATUS_LED
+    gpio_put(STATUS_LED_PIN, !gpio_get(STATUS_LED_PIN));
+#endif
 
     scheduler_t *scheduler = get_scheduler();
     scheduler->total_ticks_executing++;
@@ -225,7 +234,6 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
-        LED_FLAG(LED_WARN_PIN);
         PRINT_WARNING("No more open tasks.\n");
         scheduler_spin_unlock(saved_irq);
         return -1; // no more slots empty
@@ -233,7 +241,6 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
 
     for (int i = 0; i < num_tasks; i++) {
         if (tasks[i].id == id && tasks[i].state != TASK_FREE) {
-            LED_FLAG(LED_WARN_PIN);
             PRINT_WARNING("Task id already taken.\n");
             scheduler_spin_unlock(saved_irq);
             return -2; // id taken
@@ -316,14 +323,10 @@ void idle_task(uint32_t pid) {
 }
 
 void start_scheduler_this_core() {
-    LED_INIT(LED_DEBUG_PIN);
-    LED_INIT(LED_WARN_PIN);
-    LED_INIT(LED_FATAL_PIN);
 
     add_task(idle_task, 0 + CORE_NUM, 0);
 
     if (num_tasks == 0) {
-        LED_FLAG(LED_WARN_PIN);
         PRINT_WARNING("No tasks to run\n");
         return; // no tasks
     }
@@ -340,6 +343,10 @@ void start_scheduler_this_core() {
 }
 
 int32_t start_kernel() {
+#ifdef STATUS_LED
+    gpio_init(STATUS_LED_PIN);
+    gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
+#endif
     init_spin_locks();
 #if CORE_COUNT > 1
     multicore_reset_core1();

@@ -2,13 +2,10 @@
 // Created by wolfboy on 8/8/25.
 //
 
-#include "hardware/sync.h"
-
 #ifndef SPINLOCK_INTERNAL_H
 #define SPINLOCK_INTERNAL_H
 
-#define SCHEDULER_SPINLOCK_ID PICO_SPINLOCK_ID_OS1
-#define CHANNEL_SPINLOCK_ID   PICO_SPINLOCK_ID_OS2
+#include "hardware/sync.h"
 
 extern spin_lock_t *spin_lock_scheduler;
 extern spin_lock_t *spin_lock_channel;

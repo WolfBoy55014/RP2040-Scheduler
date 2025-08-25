@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include "kernel_config.h"
 #include "scheduler_internal.h"
 #include "channel.h"
 

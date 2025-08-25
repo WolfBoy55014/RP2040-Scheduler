@@ -1,9 +1,9 @@
 #include <hardware/gpio.h>
 #include <hardware/pwm.h>
-#include <hardware/structs/io_bank0.h>
 #include <stdio.h>
 #include <pico/stdlib.h>
 
+#include "kernel_config.h"
 #include "channel.h"
 #include "md5.h"
 #include "scheduler.h"

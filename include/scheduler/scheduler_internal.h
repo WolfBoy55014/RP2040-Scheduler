@@ -6,32 +6,9 @@
 #define SCHEDULER_INTERNAL_H
 
 #include "pico/types.h"
+#include "kernel_config.h"
 
-#define CORE_NUM get_core_num()
-#define CORE_COUNT 2
-
-#define MAX_TASKS  8   // +2 for idle
-#define STACK_SIZE 256 // x4b
-#define LOOP_TIME  1 // ms
-
-#define STACK_FILLER 0x1ABE11ED
-
-#define LED_DEBUG_PIN 25
-#define LED_WARN_PIN  5
-#define LED_FATAL_PIN 6
-// #define PRINT
-
-#define LED_INIT(pin) gpio_init(pin); gpio_set_dir(pin, GPIO_OUT); gpio_put(pin, false)
-#define LED_FLAG(pin) gpio_put(pin, true)
-#define LED_BLINK(pin) gpio_put(pin, !gpio_get(pin));
-
-#ifdef PRINT
-#define PRINT_WARNING(msg) printf(msg)
-#define PRINT_DEBUG(msg) printf(msg)
-#else
-#define PRINT_WARNING(msg)
-#define PRINT_DEBUG(msg)
-#endif
+#define CORE_NUM get_core_num() // just a macro for ease
 
 typedef enum {
     TASK_FREE,
