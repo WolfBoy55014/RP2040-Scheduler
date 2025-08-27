@@ -56,13 +56,12 @@ isr_pendsv:
     mov r7, r11
     push {r4-r7}            // push r8-r11
 
-    mov r2, sp              // copy stack pointer
+    mov r4, sp              // copy stack pointer
+    mov sp, r1              // restore the original msp
 
     blx get_current_task    // get the current task of this core's scheduler
 
-    str r2, [r0]            // and save the stack pointer there
-
-    mov sp, r1              // restore the original msp
+    str r4, [r0]            // and save the stack pointer there
 
 first_context_switch:       // skip here if this is the first time running, as there is nothing to save
     blx get_next_task       // run `get_next_task` to get the next task
@@ -88,6 +87,8 @@ first_context_switch:       // skip here if this is the first time running, as t
 
     movs r0, #1             // load a 1
     blx set_scheduler_started // run `set_scheduler_started` with a one to say its started
+
+    isb
 
     cpsie i                 // enable interrupts again
 

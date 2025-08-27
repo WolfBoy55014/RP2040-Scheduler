@@ -7,6 +7,7 @@
 #include "channel.h"
 #include "md5.h"
 #include "scheduler.h"
+#include "scheduler_internal.h"
 
 void digit_to_pins(bool *pins, uint8_t digit) {
     pins[0] = 0;
@@ -220,7 +221,7 @@ void hash_task(uint32_t pid) {
             }
 
             if (update >= 2) {
-                printf("%u\n", hashes);
+                // printf("%u\n", hashes);
 
                 // send to screen
                 uint8_t bytes[4];
@@ -266,6 +267,33 @@ void hash_task(uint32_t pid) {
     }
 }
 
+void monitor_task(uint32_t pid) {
+    const uint8_t length = 100;
+
+    while (true) {
+        printf("======= System Report =======\n");
+
+        for (uint8_t c = 0; c < CORE_COUNT; c++) {
+            printf("Core %u: [", c);
+
+            uint8_t usage = get_core_usage(c);
+            for (int u = 0; u < 100; u += 100 / length) {
+                if (u <= usage) {
+                    printf("█");
+                } else {
+                    printf(" ");
+                }
+            }
+
+            printf("] %u%%\n", usage);
+        }
+
+        printf("=============================\n\n");
+
+        task_sleep_ms(1000);
+    }
+}
+
 int main() {
     stdio_init_all();
 
@@ -273,6 +301,7 @@ int main() {
     // add_task(task_count, 9, 2);
     // add_task(stack_overflow_task, 8, 2);
     add_task(hash_task, 5,2);
+    add_task(monitor_task, 11, 3);
 
     start_kernel();
 

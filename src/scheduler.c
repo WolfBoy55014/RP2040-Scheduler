@@ -38,63 +38,64 @@ void set_scheduler_started(bool started) {
     get_scheduler()->started = started;
 }
 
-void calculate_cpu_usage(scheduler_t *scheduler) {
+void calculate_cpu_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
-    scheduler->total_cpu_usage = 0;
 
-#ifdef PRINT
-    printf("================ CPU Usage ================\n");
-#endif
-    for (uint32_t t = 0; t < num_tasks; t++) {
-        task_t *task = &tasks[t];
-        uint8_t cpu_usage = (task->ticks_executing * 100) / scheduler->total_ticks_executing;
-        task->cpu_usage = cpu_usage;
-        if (task->priority != 0) {
-            scheduler->total_cpu_usage += cpu_usage;
-        }
-        task->ticks_executing = 0;
+    uint32_t total_ticks_executing = 0;
+    uint32_t total_ticks_idling = 0;
 
-#ifdef PRINT
-        printf("PID: %u, USAGE: %u%%\n", task->id, task->cpu_usage);
-#endif
+    for (int s = 0; s < NUM_CORES; s++) {
+        scheduler_t *scheduler = &schedulers[s];
+
+        uint32_t ticks_executing = scheduler->ticks_executing;
+        uint32_t ticks_idling = scheduler->ticks_idling;
+
+        total_ticks_executing += ticks_executing;
+        total_ticks_idling += ticks_idling;
+
+        scheduler->core_usage = ((ticks_executing - ticks_idling) * 100) / ticks_executing;
+        scheduler->ticks_idling = 0;
+        scheduler->ticks_executing = 0;
     }
-#ifdef PRINT
-    printf("Total Usage: %u%%\n", scheduler->total_cpu_usage);
-    printf("===========================================\n\n");
-#endif
 
-    scheduler->total_ticks_executing = 0;
+    uint32_t ticks_doing_stuff = total_ticks_executing - total_ticks_idling;
+
+    for (int t = 0; t < MAX_TASKS; t++) {
+        task_t *task = get_current_task();
+
+        if (task->stack == TASK_FREE) {
+            continue;
+        }
+
+        if (task->id < CORE_COUNT) {
+            continue;
+        }
+
+        task->cpu_usage = (task->ticks_executing * 100) / ticks_doing_stuff;
+        task->ticks_executing = 0;
+    }
+
     scheduler_spin_unlock(saved_irq);
 }
 
-void calculate_stack_usage(scheduler_t *scheduler) {
-    const uint32_t saved_irq = scheduler_spin_lock();
-#ifdef PRINT
-    printf("=============== Stack Usage ===============\n");
-#endif
-    for (uint32_t t = 0; t < num_tasks; t++) {
-        task_t *task = &tasks[t];
-        uint32_t bytes_used = 0;
+uint8_t get_core_usage(const uint8_t core_num) {
+    uint32_t saved_irq = scheduler_spin_lock();
 
-        for (uint32_t i = 0; i < STACK_SIZE; i++) {
-            if (task->stack[i] != STACK_FILLER) {
-                bytes_used++;
-            }
-        }
-
-        task->stack_usage = (bytes_used * 100) / STACK_SIZE;
-
-        // stack overflow ;)
-        if (bytes_used >= STACK_SIZE && task->state != TASK_RUNNING) {
-            task->state = TASK_SUSPENDED;
-        }
-#ifdef PRINT
-        printf("PID: %u, USAGE: %u%%\n", task->id, task->stack_usage);
-#endif
+    if (core_num >= NUM_CORES) {
+        return 0; // it doesn't exist, thus it has no usage
     }
-#ifdef PRINT
-    printf("===========================================\n\n");
-#endif
+
+    scheduler_t *scheduler = &schedulers[core_num];
+    const uint8_t usage = scheduler->core_usage;
+
+    scheduler_spin_unlock(saved_irq);
+
+    return usage;
+}
+
+void calculate_stack_usage() {
+    const uint32_t saved_irq = scheduler_spin_lock();
+
     scheduler_spin_unlock(saved_irq);
 }
 
@@ -138,7 +139,7 @@ void get_next_task() {
             }
         }
 
-        // if this task was yielding, reset it to running
+        // if this task was yielding, reset it to ready
         // this is done after the task is chosen, as if a high priority task yields
         // we want to run a lower priority task before running the high priority one again
         if (potential_task->state == TASK_YIELDING) {
@@ -173,13 +174,9 @@ void isr_hardfault(void) {
 #ifdef STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
-    while (true) {
-        gpio_put(STATUS_LED_PIN, true);
-        sleep_ms(1000);
-        gpio_put(STATUS_LED_PIN, false);
-        sleep_ms(1000);
-    }
+    gpio_put(STATUS_LED_PIN, false);
 #endif
+    asm("bkpt");
 }
 
 void raise_pendsv() {
@@ -187,17 +184,23 @@ void raise_pendsv() {
 }
 
 void isr_systick(void) {
-#ifdef STATUS_LED
-    gpio_put(STATUS_LED_PIN, !gpio_get(STATUS_LED_PIN));
-#endif
-
     scheduler_t *scheduler = get_scheduler();
-    scheduler->total_ticks_executing++;
-    scheduler->current_task->ticks_executing++;
+    scheduler->ticks_executing++;
+    task_t *task = get_current_task();
 
-    if ((scheduler->total_ticks_executing % 100) == 0 && CORE_NUM == 0) {
-        calculate_cpu_usage(scheduler);
-        calculate_stack_usage(scheduler);
+    if (task->id < CORE_COUNT) {
+        scheduler->ticks_idling++;
+    }
+
+    task->ticks_executing++;
+
+    if (CORE_NUM == 0) {
+        if ((scheduler->ticks_executing % 10) == 0) {
+            if ((scheduler->ticks_executing % 100) == 0) {
+                calculate_cpu_usage();
+            }
+            calculate_stack_usage();
+        }
     }
 
     // raise PendSV interrupt (handler in assembly!)
@@ -250,7 +253,7 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     task_t *task = NULL;
 
     // find available task slot
-    for (int t = 0; t < MAX_TASKS; ++t) {
+    for (int t = 0; t < MAX_TASKS; t++) {
         if (tasks[t].state == TASK_FREE) {
             task = &tasks[t];
             break;
@@ -346,6 +349,7 @@ int32_t start_kernel() {
 #ifdef STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
+    gpio_put(STATUS_LED_PIN, true);
 #endif
     init_spin_locks();
 #if CORE_COUNT > 1
