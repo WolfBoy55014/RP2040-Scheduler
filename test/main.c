@@ -270,8 +270,6 @@ void monitor_task(uint32_t pid) {
     const uint8_t length = 20;
 
     while (true) {
-        uint32_t saved_irq = scheduler_spin_lock();
-
         printf("========= System Report =========\n");
 
         for (uint8_t c = 0; c < CORE_COUNT; c++) {
@@ -336,7 +334,6 @@ void monitor_task(uint32_t pid) {
         }
 
         printf("=================================\n\n");
-        scheduler_spin_unlock(saved_irq);
 
         task_sleep_ms(1000);
     }

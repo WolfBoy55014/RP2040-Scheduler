@@ -224,10 +224,9 @@ void isr_systick(void) {
         }
     }
 
-    if (!scheduler_spin_locked()) {
-        // raise PendSV interrupt (handler in assembly!)
-        raise_pendsv();
-    }
+
+    // raise PendSV interrupt (handler in assembly!)
+    raise_pendsv();
 }
 
 int32_t start_systick() {
