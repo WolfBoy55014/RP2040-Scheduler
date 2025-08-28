@@ -211,7 +211,7 @@ void hash_task(uint32_t pid) {
                     continue;
                 }
 
-                if (channel_ready_to_read(i)) {
+                if (channel_ready_to_read(i) && update < 2) {
                     uint8_t bytes[4];
                     com_channel_read(i, bytes, 4);
 
@@ -261,17 +261,15 @@ void hash_task(uint32_t pid) {
             bytes[2] = (uint8_t)((hashes >> 16) & 0xFF);
             bytes[3] = (uint8_t)((hashes >> 24) & 0xFF);  // Most significant byte
             com_channel_write(channel_id, bytes, 4);
-
-            task_yield();
         }
     }
 }
 
 void monitor_task(uint32_t pid) {
-    const uint8_t length = 100;
+    const uint8_t length = 20;
 
     while (true) {
-        printf("======= System Report =======\n");
+        printf("========= System Report =========\n");
 
         for (uint8_t c = 0; c < CORE_COUNT; c++) {
             printf("Core %u: [", c);
@@ -288,7 +286,30 @@ void monitor_task(uint32_t pid) {
             printf("] %u%%\n", usage);
         }
 
-        printf("=============================\n\n");
+        printf("\n");
+
+        for (uint32_t t = 0; t < MAX_TASKS; t++) {
+            task_t *task = &tasks[t];
+
+            if (task->state == TASK_FREE) {
+                continue;
+            }
+
+            printf("Task %u: [", task->id);
+
+            uint8_t usage = task->cpu_usage;
+            for (int u = 0; u < 100; u += 100 / length) {
+                if (u <= usage) {
+                    printf("░");
+                } else {
+                    printf(" ");
+                }
+            }
+
+            printf("] %u%%\n", usage);
+        }
+
+        printf("=================================\n\n");
 
         task_sleep_ms(1000);
     }

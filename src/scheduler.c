@@ -44,6 +44,7 @@ void calculate_cpu_usage() {
     uint32_t total_ticks_executing = 0;
     uint32_t total_ticks_idling = 0;
 
+    // calculate core usage
     for (int s = 0; s < NUM_CORES; s++) {
         scheduler_t *scheduler = &schedulers[s];
 
@@ -58,20 +59,15 @@ void calculate_cpu_usage() {
         scheduler->ticks_executing = 0;
     }
 
-    uint32_t ticks_doing_stuff = total_ticks_executing - total_ticks_idling;
-
+    // calculate task cpu usage
     for (int t = 0; t < MAX_TASKS; t++) {
-        task_t *task = get_current_task();
+        task_t *task = &tasks[t];
 
         if (task->stack == TASK_FREE) {
             continue;
         }
 
-        if (task->id < CORE_COUNT) {
-            continue;
-        }
-
-        task->cpu_usage = (task->ticks_executing * 100) / ticks_doing_stuff;
+        task->cpu_usage = (task->ticks_executing * 100) / total_ticks_executing;
         task->ticks_executing = 0;
     }
 
