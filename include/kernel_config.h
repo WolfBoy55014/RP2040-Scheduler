@@ -56,7 +56,14 @@
 #define STACK_SIZE 256          // stack size of each task. a task will be suspended if going over this limit
 #endif
 
+#ifndef STACK_OVERFLOW_THRESHOLD
+#define STACK_OVERFLOW_THRESHOLD 24 // a task will be suspended when it has less than this many words
+                                    // left free in its stack
+#endif
+
+#ifndef STACK_FILLER
 #define STACK_FILLER 0x1ABE11ED // what the stack is filled with to measure stack usage
+#endif
 
 // --- Channel Configs ---
 

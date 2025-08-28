@@ -92,6 +92,34 @@ uint8_t get_core_usage(const uint8_t core_num) {
 void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
+    for (int t = 0; t < MAX_TASKS; t++) {
+        task_t *task = &tasks[t];
+
+        if (task->state == TASK_FREE) {
+            continue;
+        }
+
+        uint32_t total_stack = task->stack_size;
+        uint32_t stack_unused = 0;
+
+        for (int i = 0; i < total_stack; i++) {
+            if (task->stack[i] == STACK_FILLER) {
+                stack_unused++;
+            } else {
+                break;  // we started from the side that will be touched last
+                        // so if this word was used so will all the rest
+            }
+        }
+
+        uint32_t stack_used = total_stack - stack_unused;
+
+        task->stack_usage = (stack_used * 100) / total_stack;
+
+        if (stack_unused < STACK_OVERFLOW_THRESHOLD) {
+            task->state = TASK_SUSPENDED;
+        }
+    }
+
     scheduler_spin_unlock(saved_irq);
 }
 
@@ -107,7 +135,7 @@ void get_next_task() {
 
     if (scheduler->current_task->state == TASK_RUNNING) {
         scheduler->current_task->state = TASK_READY;    // tell scheduler that the old task is not running anymore
-                                                        // when we move to dual core, this will be useful
+                                                        // when we move to dual-core, this will be useful
     }
 
     for (uint32_t t = 1; t <= num_tasks; t++) {
@@ -154,12 +182,9 @@ void get_next_task() {
             scheduler->current_task = potential_task;
             break;
         }
-#ifdef PRINT
-        // printf("Finding next task took: %llus\n", time_us_64() - start_time);
-#endif
     }
-
 #ifdef PRINT
+    // printf("Finding next task took: %llus\n", time_us_64() - start_time);
     // printf("Loading task id: %u\n", current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
@@ -199,8 +224,10 @@ void isr_systick(void) {
         }
     }
 
-    // raise PendSV interrupt (handler in assembly!)
-    raise_pendsv();
+    if (!scheduler_spin_locked()) {
+        // raise PendSV interrupt (handler in assembly!)
+        raise_pendsv();
+    }
 }
 
 int32_t start_systick() {

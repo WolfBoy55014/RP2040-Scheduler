@@ -8,6 +8,7 @@
 #include "md5.h"
 #include "scheduler.h"
 #include "scheduler_internal.h"
+#include "spinlock_internal.h"
 
 void digit_to_pins(bool *pins, uint8_t digit) {
     pins[0] = 0;
@@ -269,6 +270,8 @@ void monitor_task(uint32_t pid) {
     const uint8_t length = 20;
 
     while (true) {
+        uint32_t saved_irq = scheduler_spin_lock();
+
         printf("========= System Report =========\n");
 
         for (uint8_t c = 0; c < CORE_COUNT; c++) {
@@ -286,7 +289,7 @@ void monitor_task(uint32_t pid) {
             printf("] %u%%\n", usage);
         }
 
-        printf("\n");
+        printf("\n        --- CPU Usage ---\n");
 
         for (uint32_t t = 0; t < MAX_TASKS; t++) {
             task_t *task = &tasks[t];
@@ -309,7 +312,31 @@ void monitor_task(uint32_t pid) {
             printf("] %u%%\n", usage);
         }
 
+        printf("\n       --- Stack Usage ---\n");
+
+        for (uint32_t t = 0; t < MAX_TASKS; t++) {
+            task_t *task = &tasks[t];
+
+            if (task->state == TASK_FREE) {
+                continue;
+            }
+
+            printf("Task %u: [", task->id);
+
+            uint8_t usage = task->stack_usage;
+            for (int u = 0; u < 100; u += 100 / length) {
+                if (u <= usage) {
+                    printf("░");
+                } else {
+                    printf(" ");
+                }
+            }
+
+            printf("] %u%%\n", usage);
+        }
+
         printf("=================================\n\n");
+        scheduler_spin_unlock(saved_irq);
 
         task_sleep_ms(1000);
     }
@@ -320,7 +347,7 @@ int main() {
 
     add_task(task_display, 10, 2);
     // add_task(task_count, 9, 2);
-    // add_task(stack_overflow_task, 8, 2);
+    add_task(stack_overflow_task, 8, 2);
     add_task(hash_task, 5,2);
     add_task(monitor_task, 11, 3);
 
