@@ -10,6 +10,9 @@
 
 #include "scheduler_internal.h"
 #include "scheduler.h"
+
+#include <string.h>
+
 #include "spinlock_internal.h"
 #include "kernel_config.h"
 
@@ -89,8 +92,67 @@ uint8_t get_core_usage(const uint8_t core_num) {
     return usage;
 }
 
+uint32_t resize_stack(task_t *task, uint32_t new_size) {
+#ifdef DYNAMIC_STACK
+#ifdef PRINT
+    uint64_t start_time = time_us_64();
+#endif
+
+    if (new_size > MAX_STACK_SIZE) {
+        new_size = MAX_STACK_SIZE;
+    }
+
+    if (new_size < MIN_STACK_SIZE) {
+        new_size = MIN_STACK_SIZE;
+    }
+
+    uint32_t stack_pointer_offset = task->stack_base - task->stack_pointer;
+    uint32_t old_size = task->stack_size;
+
+    uint32_t *reallocated_stack = NULL;
+    reallocated_stack = realloc(task->stack, new_size * sizeof(uint32_t));
+
+    if (reallocated_stack == NULL) {
+        return old_size;                // if its null, that means there was no more room
+    }
+
+    task->stack = reallocated_stack;
+    task->stack_size = new_size;
+
+    if (new_size > old_size) {
+        const uint32_t additional_space = new_size - old_size;
+
+        memmove(&task->stack[additional_space], &task->stack[0], old_size * sizeof(uint32_t));
+
+        // fill the rest of the new stack with the filler
+        for (uint32_t i = 0; i < additional_space; i++) {
+            task->stack[i] = STACK_FILLER;
+        }
+
+        // dump the stack for debug
+        // for (int i = 0; i < new_size; i++) {
+        //     printf("%X\n", task->stack[i]);
+        // }
+    }
+
+    task->stack_base = task->stack + task->stack_size - 1;
+    task->stack_pointer = task->stack_base - stack_pointer_offset;
+
+#ifdef PRINT
+    printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
+#endif
+    return new_size;
+
+#else
+    return task->stack_size;
+#endif
+}
+
 void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
+#ifdef PRINT
+    uint64_t start_time = time_us_64();
+#endif
 
     for (int t = 0; t < MAX_TASKS; t++) {
         task_t *task = &tasks[t];
@@ -116,10 +178,20 @@ void calculate_stack_usage() {
         task->stack_usage = (stack_used * 100) / total_stack;
 
         if (stack_unused < STACK_OVERFLOW_THRESHOLD) {
+#ifdef DYNAMIC_STACK
+            if (task->stack_size < MAX_STACK_SIZE) {
+                resize_stack(task, task->stack_size + STACK_STEP_SIZE);
+            } else {
+                task->state = TASK_SUSPENDED;
+            }
+#else
             task->state = TASK_SUSPENDED;
+#endif
         }
     }
-
+#ifdef PRINT
+    printf("\nCalculating stack size took: %llu us\n", time_us_64() - start_time);
+#endif
     scheduler_spin_unlock(saved_irq);
 }
 
@@ -184,8 +256,8 @@ void get_next_task() {
         }
     }
 #ifdef PRINT
-    // printf("Finding next task took: %llus\n", time_us_64() - start_time);
-    // printf("Loading task id: %u\n", current_task->id);
+    printf("Finding next task took: %llus\n", time_us_64() - start_time);
+    printf("Loading task id: %u\n", current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
     scheduler_spin_unlock(saved_irq);
@@ -216,7 +288,7 @@ void isr_systick(void) {
     task->ticks_executing++;
 
     if (CORE_NUM == 0) {
-        if ((scheduler->ticks_executing % 10) == 0) {
+        if ((scheduler->ticks_executing % 2) == 0) {
             if ((scheduler->ticks_executing % 100) == 0) {
                 calculate_cpu_usage();
             }
@@ -255,7 +327,7 @@ void task_return() {
     remove_task(get_current_task());
 }
 
-int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority) {
+int32_t add_task(void (*task_function)(uint32_t), const uint32_t id, const uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -294,13 +366,18 @@ int32_t add_task(void (*task_function)(uint32_t), uint32_t id, uint8_t priority)
     task->id = id;
     task->priority = priority;
 
-    task->stack = (uint32_t*)malloc(STACK_SIZE * sizeof(uint32_t)); // dynamically get stack from heap
-    task->stack_size = STACK_SIZE; // in 32bit words
+#ifdef DYNAMIC_STACK
+    const uint32_t stack_size = STARTING_STACK_SIZE;
+#else
+    const uint32_t stack_size = STACK_SIZE;
+#endif
+    task->stack = (uint32_t*)malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
+    task->stack_size = stack_size; // in 32bit words
     uint32_t *stack_top = task->stack; // lowest value in stack
     task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)
 
     // fill stack with known values for stack monitoring
-    for (uint32_t i = 0; i < STACK_SIZE; i++) {
+    for (uint32_t i = 0; i < stack_size; i++) {
         task->stack[i] = STACK_FILLER;
     }
 

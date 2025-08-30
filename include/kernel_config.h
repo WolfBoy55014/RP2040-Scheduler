@@ -24,7 +24,7 @@
 #endif
 
 #ifndef LOOP_TIME
-#define LOOP_TIME  2            // cycle time in ms, may be fractional
+#define LOOP_TIME 2             // cycle time in ms, may be fractional
                                 // (optimal value was found to be between 1-3 ms)
 #endif
 
@@ -33,11 +33,11 @@
 // all stack sizes are measured in 32 bit *words*
 // so a stack is 4 times larger in *bytes*
 
-// #define DYNAMIC_STACK           // perform dynamic re-allocation of stacks as they grow
+#define DYNAMIC_STACK           // perform dynamic re-allocation of stacks as they grow
 
 #ifdef DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 128 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 256 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE
@@ -48,8 +48,8 @@
 #define MAX_STACK_SIZE 1024     // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
-#ifndef RE_ALLOCATION_SIZE
-#define RE_ALLOCATION_SIZE 32   // the amount of stack the scheduler will give and take from a task at a time
+#ifndef STACK_STEP_SIZE
+#define STACK_STEP_SIZE 32      // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
 #endif
 #else
@@ -57,8 +57,8 @@
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
-#define STACK_OVERFLOW_THRESHOLD 24 // a task will be suspended when it has less than this many words
-                                    // left free in its stack
+#define STACK_OVERFLOW_THRESHOLD 24 // a task will be suspended or have its stack resized
+                                    // when it has less than this many words left free in its stack
 #endif
 
 #ifndef STACK_FILLER

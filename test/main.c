@@ -180,7 +180,7 @@ void recursive_function(int depth) {
 }
 
 void stack_overflow_task(uint32_t pid) {
-    recursive_function(1000); // Call with a large depth
+    recursive_function(200); // call with a large depth
     while (true);
 }
 
@@ -330,7 +330,7 @@ void monitor_task(uint32_t pid) {
                 }
             }
 
-            printf("] %u%%\n", usage);
+            printf("] %u%% (%u bytes)\n", usage, task->stack_size * 4);
         }
 
         printf("=================================\n\n");
@@ -346,7 +346,7 @@ int main() {
     // add_task(task_count, 9, 2);
     add_task(stack_overflow_task, 8, 2);
     add_task(hash_task, 5,2);
-    add_task(monitor_task, 11, 3);
+    // add_task(monitor_task, 11, 3);
 
     start_kernel();
 
