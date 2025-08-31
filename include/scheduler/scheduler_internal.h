@@ -50,6 +50,19 @@ typedef struct {
     uint8_t core_usage;
 } scheduler_t;
 
+#ifdef PROFILE_SCHEDULER
+typedef struct {
+    double time_total;
+    double time_stack_metrics;
+    double time_stack_resizing;
+    double time_cpu_metrics;
+    double time_scheduling;
+    double time_spinlock;
+} scheduler_profile_t;
+
+extern scheduler_profile_t profile;
+#endif
+
 /* Scheduler Variables */
 extern volatile scheduler_t schedulers[CORE_COUNT];
 extern volatile uint32_t num_tasks;

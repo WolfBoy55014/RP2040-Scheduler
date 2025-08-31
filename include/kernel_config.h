@@ -52,8 +52,11 @@
 #define STACK_STEP_SIZE 32      // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
 #endif
+
 #else
+#ifndef STACK_SIZE
 #define STACK_SIZE 256          // stack size of each task. a task will be suspended if going over this limit
+#endif
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
@@ -98,6 +101,8 @@
 #define PRINT_WARNING(msg)
 #define PRINT_DEBUG(msg)
 #endif
+
+#define PROFILE_SCHEDULER
 
 #define STATUS_LED
 
