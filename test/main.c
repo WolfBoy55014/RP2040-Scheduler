@@ -174,7 +174,7 @@ void recursive_function(int depth) {
     uint32_t bread = 9;
     bread++;
     if (depth > 0) {
-        task_sleep_ms(100);
+        task_sleep_ms(10);
         recursive_function(depth - 1);
     }
 }
@@ -346,7 +346,7 @@ int main() {
     // add_task(task_count, 9, 2);
     add_task(stack_overflow_task, 8, 2);
     add_task(hash_task, 5,2);
-    // add_task(monitor_task, 11, 3);
+    add_task(monitor_task, 11, 3);
 
     start_kernel();
 

@@ -15,7 +15,7 @@
 // --- Scheduler Configs ---
 
 #ifndef CORE_COUNT
-#define CORE_COUNT 2            // number of cores the kernel will use
+#define CORE_COUNT 1            // number of cores the kernel will use
 #endif
 
 #ifndef MAX_TASKS
@@ -51,6 +51,8 @@
 #ifndef STACK_STEP_SIZE
 #define STACK_STEP_SIZE 32      // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
+                                // (you might want to try increasing this if you expect rapid stack usage
+                                // or are experiencing random crashes)
 #endif
 
 #else
@@ -62,10 +64,34 @@
 #ifndef STACK_OVERFLOW_THRESHOLD
 #define STACK_OVERFLOW_THRESHOLD 24 // a task will be suspended or have its stack resized
                                     // when it has less than this many words left free in its stack
+                                    // (you might want to try increasing this if you expect rapid stack usage
+                                    // or are experiencing random crashes)
+#endif
+
+#ifndef STACK_MONITOR_FREQ
+#define STACK_MONITOR_FREQ 2        // perform a stack usage calculation for this many scheduler loops
+                                    // can add large overhead to the scheduler which can be roughly calculated:
+                                    // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
+                                    // (this could be set very high if you think your tasks won't need more stack)
+                                    // (if you do experience crashes, you can try reducing this,
+                                    // but try STACK_OVERFLOW_THRESHOLD first)
 #endif
 
 #ifndef STACK_FILLER
 #define STACK_FILLER 0x1ABE11ED // what the stack is filled with to measure stack usage
+#endif
+
+#define OPTIMIZE_STACK_MONITORING   // apply optimizations to stack monitoring
+                                    // such as reducing the amount of calculations spent
+                                    // on tasks with low stack usage
+
+#ifdef OPTIMIZE_STACK_MONITORING
+#ifndef OPTIMIZE_STACK_MONITORING_FACTOR
+#define OPTIMIZE_STACK_MONITORING_FACTOR 3  // how many recalculations to delay recalculating a tasks usage
+                                            // per STACK_OVERFLOW_THRESHOLDs of free space
+                                            // (if you increase STACK_OVERFLOW_THRESHOLD,
+                                            // you might want to decrease this)
+#endif
 #endif
 
 // --- Channel Configs ---

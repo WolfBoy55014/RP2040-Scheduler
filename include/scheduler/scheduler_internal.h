@@ -39,6 +39,9 @@ typedef struct {
     uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint32_t ticks_executing;   // How many ticks this task was seen running
     uint8_t stack_usage;        // Stack utilization (0 - 100)
+#ifdef OPTIMIZE_STACK_MONITORING
+    uint8_t stack_recalculate_cooldown; // loops until next stack usage recalculation
+#endif
 } task_t;
 
 typedef struct {
@@ -52,12 +55,12 @@ typedef struct {
 
 #ifdef PROFILE_SCHEDULER
 typedef struct {
-    double time_total;
-    double time_stack_metrics;
-    double time_stack_resizing;
-    double time_cpu_metrics;
-    double time_scheduling;
-    double time_spinlock;
+    float time_total;
+    float time_stack_metrics;
+    float time_stack_resizing;
+    float time_cpu_metrics;
+    float time_scheduling;
+    float time_spinlock;
 } scheduler_profile_t;
 
 extern scheduler_profile_t profile;

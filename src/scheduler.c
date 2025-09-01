@@ -80,7 +80,7 @@ void calculate_cpu_usage() {
         task->ticks_executing = 0;
     }
 #ifdef PROFILE_SCHEDULER
-    profile.time_cpu_metrics += (time_us_32() - start_time) / 1000.0;
+    profile.time_cpu_metrics += (time_us_32() - start_time) / 1000.0f;
 #endif
     scheduler_spin_unlock(saved_irq);
 }
@@ -150,7 +150,7 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
 #endif
 #ifdef PROFILE_SCHEDULER
-    profile.time_stack_resizing += (time_us_32() - start_time) / 1000.0;
+    profile.time_stack_resizing += (time_us_32() - start_time) / 1000.0f;
 #endif
     return new_size;
 
@@ -172,6 +172,17 @@ void calculate_stack_usage() {
             continue;
         }
 
+#ifdef OPTIMIZE_STACK_MONITORING
+        if (task->state == TASK_SUSPENDED) {
+            continue;
+        }
+
+        if (task->stack_recalculate_cooldown > 0) {
+            task->stack_recalculate_cooldown--;
+            continue;
+        }
+#endif
+
         uint32_t total_stack = task->stack_size;
         uint32_t stack_unused = 0;
 
@@ -187,6 +198,13 @@ void calculate_stack_usage() {
         uint32_t stack_used = total_stack - stack_unused;
 
         task->stack_usage = (stack_used * 100) / total_stack;
+
+#ifdef OPTIMIZE_STACK_MONITORING
+        task->stack_recalculate_cooldown = OPTIMIZE_STACK_MONITORING_FACTOR * (stack_unused / STACK_OVERFLOW_THRESHOLD);
+        if (task->state == TASK_WAIT_US) {
+            task->stack_recalculate_cooldown++;
+        }
+#endif
 
         if (stack_unused < STACK_OVERFLOW_THRESHOLD) {
 #ifdef DYNAMIC_STACK
@@ -204,7 +222,7 @@ void calculate_stack_usage() {
     printf("\nCalculating stack size took: %llu us\n", time_us_32() - start_time);
 #endif
 #ifdef PROFILE_SCHEDULER
-    profile.time_stack_metrics += (time_us_32() - start_time) / 1000.0;
+    profile.time_stack_metrics += (time_us_32() - start_time) / 1000.0f;
 #endif
     scheduler_spin_unlock(saved_irq);
 }
@@ -275,7 +293,9 @@ void get_next_task() {
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
 #ifdef PROFILE_SCHEDULER
-    profile.time_scheduling += (time_us_32() - start_time) / 1000.0;
+    if (CORE_NUM == 0) {
+        profile.time_scheduling += (time_us_32() - start_time) / 1000.0f;
+    }
 #endif
     scheduler_spin_unlock(saved_irq);
 }
@@ -317,13 +337,14 @@ void isr_systick(void) {
     }
 
 #ifdef PROFILE_SCHEDULER
-    profile.time_total += (time_us_32() - start_time) / 1000.0;
+    profile.time_total += (time_us_32() - start_time) / 1000.0f;
 #endif
 
 #ifdef PROFILE_SCHEDULER
     if (((scheduler->ticks_executing % 500) == 0) && (CORE_NUM == 0)) {
         printf("========= Profile Report =========\n");
         printf("%f ms total scheduling\n", profile.time_total);
+        printf("%f ms picking next task\n", profile.time_scheduling);
         printf("%f ms measuring stacks\n", profile.time_stack_metrics);
         printf("%f ms resizing stacks\n", profile.time_stack_resizing);
         printf("%f ms measuring CPU usage\n", profile.time_cpu_metrics);
@@ -403,6 +424,9 @@ int32_t add_task(void (*task_function)(uint32_t), const uint32_t id, const uint8
     task->stack_usage = 0;
     task->cpu_usage = 0;
     task->ticks_executing = 0;
+#ifdef OPTIMIZE_STACK_MONITORING
+    task->stack_recalculate_cooldown = 0;
+#endif
 
     task->id = id;
     task->priority = priority;
