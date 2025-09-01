@@ -159,6 +159,27 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
 #endif
 }
 
+bool find_and_resolve_stack_overflow(task_t *task) {
+    uint32_t *check_point = task->stack + STACK_OVERFLOW_THRESHOLD - 1;
+
+    if (*check_point != STACK_FILLER) {
+#ifdef DYNAMIC_STACK
+        if (task->stack_size < MAX_STACK_SIZE) {
+            uint32_t old_size = task->stack_size;
+            uint32_t new_size = resize_stack(task, task->stack_size + STACK_STEP_SIZE);
+            if (new_size > old_size) {
+                return true;
+            }
+        }
+#endif
+
+        task->state = TASK_SUSPENDED;
+        return false;
+    }
+
+    return true;
+}
+
 void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
 #if defined(PROFILE_SCHEDULER) || defined(PRINT)
@@ -168,7 +189,7 @@ void calculate_stack_usage() {
     for (int t = 0; t < MAX_TASKS; t++) {
         task_t *task = &tasks[t];
 
-        if (task->state == TASK_FREE) {
+        if (task->state == TASK_FREE || task->state == TASK_RUNNING) {
             continue;
         }
 
@@ -282,9 +303,11 @@ void get_next_task() {
         task_t *potential_task = &tasks[potential_index];
 
         if (potential_task->state == TASK_READY && potential_task->priority == highest_priority) {
-            scheduler->current_task_index = potential_index;
-            scheduler->current_task = potential_task;
-            break;
+            if (find_and_resolve_stack_overflow(potential_task)) {
+                scheduler->current_task_index = potential_index;
+                scheduler->current_task = potential_task;
+                break;
+            }
         }
     }
 #ifdef PRINT
@@ -328,11 +351,11 @@ void isr_systick(void) {
     task->ticks_executing++;
 
     if (CORE_NUM == 0) {
-        if ((scheduler->ticks_executing % 2) == 0) {
+        if ((scheduler->ticks_executing % STACK_MONITOR_FREQ) == 0) {
             calculate_stack_usage();
-            if ((scheduler->ticks_executing % 100) == 0) {
-                calculate_cpu_usage();
-            }
+        }
+        if ((scheduler->ticks_executing % 100) == 0) {
+            calculate_cpu_usage();
         }
     }
 

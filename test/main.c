@@ -180,7 +180,7 @@ void recursive_function(int depth) {
 }
 
 void stack_overflow_task(uint32_t pid) {
-    recursive_function(200); // call with a large depth
+    recursive_function(10000); // call with a large depth
     while (true);
 }
 

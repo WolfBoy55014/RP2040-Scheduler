@@ -15,7 +15,7 @@
 // --- Scheduler Configs ---
 
 #ifndef CORE_COUNT
-#define CORE_COUNT 1            // number of cores the kernel will use
+#define CORE_COUNT 2            // number of cores the kernel will use
 #endif
 
 #ifndef MAX_TASKS
@@ -45,7 +45,7 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE 1024     // the maximum amount of stack the scheduler will give a task before suspending it
+#define MAX_STACK_SIZE 4096     // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
 #ifndef STACK_STEP_SIZE
@@ -69,7 +69,7 @@
 #endif
 
 #ifndef STACK_MONITOR_FREQ
-#define STACK_MONITOR_FREQ 2        // perform a stack usage calculation for this many scheduler loops
+#define STACK_MONITOR_FREQ 6        // perform a stack usage calculation for this many scheduler loops
                                     // can add large overhead to the scheduler which can be roughly calculated:
                                     // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
                                     // (this could be set very high if you think your tasks won't need more stack)
