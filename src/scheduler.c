@@ -193,6 +193,13 @@ void calculate_stack_usage() {
             continue;
         }
 
+        // if task is dead, remove it
+        if (task->state == TASK_DEAD) {
+            free(task->stack);
+            task->state = TASK_FREE;
+            continue;
+        }
+
 #ifdef OPTIMIZE_STACK_MONITORING
         if (task->state == TASK_SUSPENDED) {
             continue;
@@ -240,7 +247,7 @@ void calculate_stack_usage() {
         }
     }
 #ifdef PRINT
-    printf("\nCalculating stack size took: %llu us\n", time_us_32() - start_time);
+    printf("\nCalculating stack size took: %u us\n", time_us_32() - start_time);
 #endif
 #ifdef PROFILE_SCHEDULER
     profile.time_stack_metrics += (time_us_32() - start_time) / 1000.0f;
@@ -263,28 +270,36 @@ void get_next_task() {
                                                         // when we move to dual-core, this will be useful
     }
 
-    for (uint32_t t = 1; t <= num_tasks; t++) {
-        uint32_t potential_index = (t + scheduler->current_task_index) % num_tasks;
+    uint32_t potential_index = scheduler->current_task_index;
+    absolute_time_t now = get_absolute_time();
+
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
+        potential_index++;
+
+        if (potential_index >= MAX_TASKS) {
+            potential_index = 0;
+        }
 
         task_t *potential_task = &tasks[potential_index];
 
-        // if task is dead, remove it
-        if (potential_task->state == TASK_DEAD) {
-            free(potential_task->stack);
-            potential_task->state = TASK_FREE;
+        // if this task is free, skip
+        if (potential_task->state == TASK_FREE) {
+            continue;
         }
 
         // see if the required time has passed for this task, if it was waiting
         if (potential_task->state == TASK_WAIT_US) {
-            if (absolute_time_diff_us(get_absolute_time(), potential_task->resume_us) <= 0) {
+            if (absolute_time_diff_us(now, potential_task->resume_us) <= 0) {
                 potential_task->state = TASK_READY;
             }
         }
 
-        // get the highest priority of the ready tasks
-        if (potential_task->state == TASK_READY) {
-            if (potential_task->priority > highest_priority) {
+        // if this task has the highest priority found so far, select it
+        if ((potential_task->state == TASK_READY) && (potential_task->priority > highest_priority)) {
+            if (find_and_resolve_stack_overflow(potential_task)) {
                 highest_priority = potential_task->priority;
+                scheduler->current_task_index = potential_index;
+                scheduler->current_task = potential_task;
             }
         }
 
@@ -295,24 +310,9 @@ void get_next_task() {
             potential_task->state = TASK_READY;
         }
     }
-
-    // get the next task with the highest priority
-    for (uint32_t t = 1; t <= num_tasks; t++) {
-        const uint32_t potential_index = (t + scheduler->current_task_index) % num_tasks;
-
-        task_t *potential_task = &tasks[potential_index];
-
-        if (potential_task->state == TASK_READY && potential_task->priority == highest_priority) {
-            if (find_and_resolve_stack_overflow(potential_task)) {
-                scheduler->current_task_index = potential_index;
-                scheduler->current_task = potential_task;
-                break;
-            }
-        }
-    }
 #ifdef PRINT
-    printf("Finding next task took: %llus\n", time_us_32() - start_time);
-    printf("Loading task id: %u\n", current_task->id);
+    printf("Finding next task took: %u us\n", time_us_32() - start_time);
+    printf("Loading task id: %u\n", scheduler->current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
 #ifdef PROFILE_SCHEDULER
