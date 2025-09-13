@@ -17,9 +17,9 @@
 #include "kernel_config.h"
 
 /* Scheduler Variables */
-volatile scheduler_t schedulers[CORE_COUNT];
-volatile uint32_t num_tasks;
-volatile task_t tasks[MAX_TASKS];
+scheduler_t schedulers[CORE_COUNT];
+uint32_t num_tasks;
+task_t tasks[MAX_TASKS];
 #ifdef PROFILE_SCHEDULER
 scheduler_profile_t profile;
 #endif
@@ -63,7 +63,12 @@ void calculate_cpu_usage() {
         total_ticks_executing += ticks_executing;
         total_ticks_idling += ticks_idling;
 
-        scheduler->core_usage = ((ticks_executing - ticks_idling) * 100) / ticks_executing;
+        if (ticks_executing <= 0) {
+            scheduler->core_usage = 0;
+        } else {
+            scheduler->core_usage = ((ticks_executing - ticks_idling) * 100) / ticks_executing;
+        }
+
         scheduler->ticks_idling = 0;
         scheduler->ticks_executing = 0;
     }
@@ -86,11 +91,11 @@ void calculate_cpu_usage() {
 }
 
 uint8_t get_core_usage(const uint8_t core_num) {
-    uint32_t saved_irq = scheduler_spin_lock();
-
     if (core_num >= NUM_CORES) {
         return 0; // it doesn't exist, thus it has no usage
     }
+
+    uint32_t saved_irq = scheduler_spin_lock();
 
     scheduler_t *scheduler = &schedulers[core_num];
     const uint8_t usage = scheduler->core_usage;
@@ -136,11 +141,6 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
         for (uint32_t i = 0; i < additional_space; i++) {
             task->stack[i] = STACK_FILLER;
         }
-
-        // dump the stack for debug
-        // for (int i = 0; i < new_size; i++) {
-        //     printf("%X\n", task->stack[i]);
-        // }
     }
 
     task->stack_base = task->stack + task->stack_size - 1;
@@ -215,6 +215,7 @@ void calculate_stack_usage() {
         uint32_t stack_unused = 0;
 
         for (int i = 0; i < total_stack; i++) {
+            // remember, the ARM stack grows downwards!
             if (task->stack[i] == STACK_FILLER) {
                 stack_unused++;
             } else {
@@ -387,8 +388,8 @@ void isr_systick(void) {
 }
 
 int32_t start_systick() {
-    uint32_t clock_hz = clock_get_hz(clk_sys);
-    uint32_t ticks = clock_hz / 1000 * LOOP_TIME;     // loop time in ms
+    const uint32_t clock_hz = clock_get_hz(clk_sys);
+    const uint32_t ticks = (clock_hz * LOOP_TIME) / 1000;     // loop time in ms
 
     // configure SysTick
     systick_hw->rvr = ticks - 1;                        // set ticks until fire
@@ -401,10 +402,14 @@ int32_t start_systick() {
 }
 
 void remove_task(task_t *task) {
-    const uint32_t saved_irq = scheduler_spin_lock();
+    for (int i = 0; i < UINT32_MAX && task->state == TASK_RUNNING; i++) {
+        tight_loop_contents(); // don't want to remove a task while its running.
+    }
 
+    const uint32_t saved_irq = scheduler_spin_lock();
     task->state = TASK_DEAD;
     scheduler_spin_unlock(saved_irq);
+
     raise_pendsv();
 }
 
@@ -460,6 +465,11 @@ int32_t add_task(void (*task_function)(uint32_t), const uint32_t id, const uint8
     const uint32_t stack_size = STACK_SIZE;
 #endif
     task->stack = (uint32_t*)malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
+
+    if (task->stack == NULL) {
+        return -1;
+    }
+
     task->stack_size = stack_size; // in 32bit words
     uint32_t *stack_top = task->stack; // lowest value in stack
     task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)
@@ -559,6 +569,11 @@ int32_t start_kernel() {
 /* Task Functions */
 
 void task_sleep_ms(uint32_t ms) {
+    if (ms > UINT32_MAX / 1000) {
+        task_sleep_us(UINT32_MAX);
+        return;
+    }
+
     task_sleep_us(ms * 1000);
 }
 

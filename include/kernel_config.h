@@ -128,7 +128,7 @@
 #define PRINT_DEBUG(msg)
 #endif
 
-#define PROFILE_SCHEDULER
+// #define PROFILE_SCHEDULER
 
 #define STATUS_LED
 
