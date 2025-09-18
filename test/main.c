@@ -9,6 +9,28 @@
 #include "scheduler.h"
 #include "scheduler_internal.h"
 #include "spinlock_internal.h"
+#include "pico/runtime_init.h"
+
+void spin(const uint32_t n) {
+    switch (n % 4) {
+        case 0:
+            printf("\b|");
+            break;
+
+        case 1:
+            printf("\b/");
+            break;
+
+        case 2:
+            printf("\b-");
+            break;
+
+        case 3:
+            printf("\b\\");
+            break;
+        default: ;
+    }
+}
 
 void digit_to_pins(bool *pins, uint8_t digit) {
     pins[0] = 0;
@@ -150,119 +172,76 @@ void task_display(uint32_t pid) {
         task_yield();
     }
 }
+uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth) {
+    const uint32_t c = a + b;
 
-void task_count(uint32_t pid) {
-    int32_t channel_id = com_channel_request(10);
+    spin(depth / 16);
 
-    while (true) {
-        for (uint32_t i = 0; i < 9999; ++i) {
-            if (channel_ready_to_write(channel_id)) {
-                uint8_t bytes[4];
-                bytes[0] = (uint8_t)(i & 0xFF);          // Least significant byte
-                bytes[1] = (uint8_t)((i >> 8) & 0xFF);
-                bytes[2] = (uint8_t)((i >> 16) & 0xFF);
-                bytes[3] = (uint8_t)((i >> 24) & 0xFF);  // Most significant byte
-                com_channel_write(channel_id, bytes, 4);
-            }
-
-            task_sleep_ms(100);
-        }
+    if (depth <= 0) {
+        return c;
     }
-}
 
-void recursive_function(int depth) {
-    uint32_t bread = 9;
-    bread++;
-    if (depth > 0) {
-        task_sleep_ms(10);
-        recursive_function(depth - 1);
-    }
-}
+    task_sleep_ms(2);
+    const uint32_t d = recursively_check_stack(b, c, depth - 1);
+    task_sleep_ms(2);
 
-void stack_overflow_task(uint32_t pid) {
-    recursive_function(10000); // call with a large depth
-    while (true);
-}
+    spin(depth / 8);
 
-void hash_task(uint32_t pid) {
-    bool is_child = (pid != 5);
-
-    if (!is_child) {
-        int32_t channel_id = com_channel_request(10);
-
-        if (channel_id < 0) {
-            return;
-        }
-
-        // make child tasks
-        add_task(hash_task, 6, 2);
-        add_task(hash_task, 7, 2);
-
-        uint32_t hashes = 0;
-        uint8_t update = 0;
-
-        while (true) {
-
-            uint16_t channel_ids[NUM_CHANNELS];
-            uint32_t num_connected = get_connected_channels(channel_ids, NUM_CHANNELS);
-
-            // get hash counts from each child
-            for (int i = 0; i < num_connected; ++i) {
-                if (is_owner_of_channel(i)) {
-                    continue;
-                }
-
-                if (channel_ready_to_read(i) && update < 2) {
-                    uint8_t bytes[4];
-                    com_channel_read(i, bytes, 4);
-
-                    hashes += bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
-                    update++;
-                }
-            }
-
-            if (update >= 2) {
-                // printf("%u\n", hashes);
-
-                // send to screen
-                uint8_t bytes[4];
-                bytes[0] = (uint8_t)(hashes & 0xFF);          // Least significant byte
-                bytes[1] = (uint8_t)((hashes >> 8) & 0xFF);
-                bytes[2] = (uint8_t)((hashes >> 16) & 0xFF);
-                bytes[3] = (uint8_t)((hashes >> 24) & 0xFF);  // Most significant byte
-                com_channel_write(channel_id, bytes, 4);
-
-                hashes = 0;
-                update = 0;
-            }
-            task_sleep_ms(100);
-        }
+    // validate result
+    if (d - c == b) {
+        // correct
+        return c;
     } else {
-        int32_t channel_id = com_channel_request(5);
+        // error
+        printf("\nMemory corruption at depth %u (this is counted from the end)\n", depth);
+        task_end(-1);
+    }
 
-        if (channel_id < 0) {
-            return;
-        }
+    return 0;
+}
 
-        while (true) {
-            absolute_time_t start = get_absolute_time();
-            absolute_time_t end = delayed_by_ms(start, 1000);
-            char *string = "Hello World!";
-            uint8_t result[16];
-            uint32_t hashes = 0;
+void stack_protection_test_task(uint32_t pid) {
+    // wait to connect to `unit_test_task`
+    uint16_t channels[NUM_CHANNELS];
+    while (get_connected_channels(channels, NUM_CHANNELS) <= 0) {task_yield();}
+    uint16_t cid = channels[0];
 
-            while (absolute_time_diff_us(get_absolute_time(), end) > 0) {
-                md5String(string, result);
-                hashes++;
-            }
+    // get length of test
+    uint8_t bytes[CHANNEL_SIZE];
+    while (!channel_ready_to_read(cid)) {task_yield();}
+    com_channel_read(cid, bytes, CHANNEL_SIZE);
 
-            uint8_t bytes[4];
-            bytes[0] = (uint8_t)(hashes & 0xFF);          // Least significant byte
-            bytes[1] = (uint8_t)((hashes >> 8) & 0xFF);
-            bytes[2] = (uint8_t)((hashes >> 16) & 0xFF);
-            bytes[3] = (uint8_t)((hashes >> 24) & 0xFF);  // Most significant byte
-            com_channel_write(channel_id, bytes, 4);
-        }
+    uint32_t test_length = bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+    printf("Doing Stack Protection Test of length %u |", test_length);
+
+    recursively_check_stack(0, 1, test_length);
+
+    printf("\n" "\e[0;32m" "SUCCESS" "\e[0m" "\n");
+}
+
+void unit_test_task(uint32_t pid) {
+    printf("\nStarting Unit Tests\n");
+    task_sleep_ms(1000);
+
+    printf("Testing Stack Management\n");
+    task_sleep_ms(1000);
+
+    printf("Testing Overflow Protection\n");
+    const uint32_t protection_test_pid = pid + 1;
+    const uint32_t protection_test_length = 1024;
+
+    add_task(stack_protection_test_task, protection_test_pid, 7);
+
+    const uint32_t protection_test_cid = com_channel_request(protection_test_pid);
+    uint8_t bytes[CHANNEL_SIZE];
+    bytes[0] = protection_test_length >> 24;
+    bytes[1] = protection_test_length >> 16;
+    bytes[2] = protection_test_length >> 8;
+    bytes[3] = protection_test_length;
+    com_channel_write(protection_test_cid, bytes, CHANNEL_SIZE);
+
+    while(true) {
+        task_yield();
     }
 }
 
@@ -342,11 +321,9 @@ void monitor_task(uint32_t pid) {
 int main() {
     stdio_init_all();
 
-    add_task(task_display, 10, 2);
-    // add_task(task_count, 9, 2);
-    add_task(stack_overflow_task, 8, 2);
-    add_task(hash_task, 5,2);
-    add_task(monitor_task, 11, 3);
+    // add_task(task_display, 10, 2);
+    // add_task(monitor_task, 11, 8);
+    add_task(unit_test_task, 4, 7);
 
     start_kernel();
 

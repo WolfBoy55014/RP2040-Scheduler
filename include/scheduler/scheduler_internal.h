@@ -17,6 +17,7 @@ typedef enum {
     TASK_SUSPENDED,
     TASK_WAIT_US,
     TASK_YIELDING,
+    TASK_ZOMBIE,
     TASK_DEAD
 } task_state_t;
 

@@ -193,13 +193,6 @@ void calculate_stack_usage() {
             continue;
         }
 
-        // if task is dead, remove it
-        if (task->state == TASK_DEAD) {
-            free(task->stack);
-            task->state = TASK_FREE;
-            continue;
-        }
-
 #ifdef OPTIMIZE_STACK_MONITORING
         if (task->state == TASK_SUSPENDED) {
             continue;
@@ -264,11 +257,15 @@ void get_next_task() {
 
     scheduler_t *scheduler = get_scheduler();
 
-    uint8_t highest_priority = 0;
+    int16_t highest_priority = -1;
 
     if (scheduler->current_task->state == TASK_RUNNING) {
         scheduler->current_task->state = TASK_READY;    // tell scheduler that the old task is not running anymore
                                                         // when we move to dual-core, this will be useful
+    }
+
+    if (scheduler->current_task->state == TASK_ZOMBIE) {
+        scheduler->current_task->state = TASK_DEAD;
     }
 
     uint32_t potential_index = scheduler->current_task_index;
@@ -282,6 +279,13 @@ void get_next_task() {
         }
 
         task_t *potential_task = &tasks[potential_index];
+
+        // if task is dead, remove it
+        if (potential_task->state == TASK_DEAD) {
+            free(potential_task->stack);
+            potential_task->state = TASK_FREE;
+            continue;
+        }
 
         // if this task is free, skip
         if (potential_task->state == TASK_FREE) {
@@ -402,12 +406,15 @@ int32_t start_systick() {
 }
 
 void remove_task(task_t *task) {
-    for (int i = 0; i < UINT32_MAX && task->state == TASK_RUNNING; i++) {
-        tight_loop_contents(); // don't want to remove a task while its running.
-    }
-
     const uint32_t saved_irq = scheduler_spin_lock();
-    task->state = TASK_DEAD;
+
+    // we make it a zombie until it stops running to prevent from freeing
+    // the stack from another core while it is still running
+    if (task->state == TASK_RUNNING) {
+        task->state = TASK_ZOMBIE;
+    } else {
+        task->state = TASK_DEAD;
+    }
     scheduler_spin_unlock(saved_irq);
 
     raise_pendsv();
@@ -569,7 +576,7 @@ int32_t start_kernel() {
 /* Task Functions */
 
 void task_sleep_ms(uint32_t ms) {
-    if (ms > UINT32_MAX / 1000) {
+    if (ms > (UINT32_MAX / 1000)) {
         task_sleep_us(UINT32_MAX);
         return;
     }
@@ -592,5 +599,9 @@ void task_yield() {
     current_task->state = TASK_YIELDING;
     scheduler_spin_unlock(saved_irq);
     raise_pendsv();
+}
+
+void task_end(int32_t code) {
+    task_return();
 }
 

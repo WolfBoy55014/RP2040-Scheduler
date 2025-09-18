@@ -45,7 +45,7 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE 4096     // the maximum amount of stack the scheduler will give a task before suspending it
+#define MAX_STACK_SIZE 16384     // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
 #ifndef STACK_STEP_SIZE
