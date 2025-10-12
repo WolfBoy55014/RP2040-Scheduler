@@ -433,12 +433,10 @@ int32_t add_task(void (*task_function)(uint32_t), const uint32_t id, const uint8
         return -1; // no more slots empty
     }
 
-    for (int i = 0; i < num_tasks; i++) {
-        if (tasks[i].id == id && tasks[i].state != TASK_FREE) {
-            PRINT_WARNING("Task id already taken.\n");
-            scheduler_spin_unlock(saved_irq);
-            return -2; // id taken
-        }
+    if (task_exists(id)) {
+        PRINT_WARNING("Task id already taken.\n");
+        scheduler_spin_unlock(saved_irq);
+        return -2; // id taken
     }
 
     task_t *task = NULL;
@@ -603,5 +601,15 @@ void task_yield() {
 
 void task_end(int32_t code) {
     task_return();
+}
+
+bool task_exists(uint32_t pid) {
+    for (int i = 0; i < num_tasks; i++) {
+        if (tasks[i].id == pid && tasks[i].state != TASK_FREE) {
+            return 1; // id exists
+        }
+    }
+
+    return 0;
 }
 

@@ -172,20 +172,20 @@ void task_display(uint32_t pid) {
         task_yield();
     }
 }
-uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth) {
+uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth, uint16_t difficulty) {
     const uint32_t c = a + b;
 
-    spin(depth / 16);
+    spin(depth / 64);
 
     if (depth <= 0) {
         return c;
     }
 
-    task_sleep_ms(2);
-    const uint32_t d = recursively_check_stack(b, c, depth - 1);
-    task_sleep_ms(2);
+    task_sleep_ms(100 - difficulty);
+    const uint32_t d = recursively_check_stack(b, c, depth - 1, difficulty);
+    task_sleep_ms(1);
 
-    spin(depth / 8);
+    spin(depth / 16);
 
     // validate result
     if (d - c == b) {
@@ -207,14 +207,16 @@ void stack_protection_test_task(uint32_t pid) {
     uint16_t cid = channels[0];
 
     // get length of test
-    uint8_t bytes[CHANNEL_SIZE];
-    while (!channel_ready_to_read(cid)) {task_yield();}
-    com_channel_read(cid, bytes, CHANNEL_SIZE);
+    uint8_t bytes[4];
+    while (!channel_ready_to_read(cid)) { task_yield(); }
+    com_channel_read(cid, bytes, 4);
 
-    uint32_t test_length = bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
-    printf("Doing Stack Protection Test of length %u |", test_length);
+    uint16_t difficulty = bytes[0] << 8 | bytes[1];
+    uint16_t test_length = bytes[2] << 8 | bytes[3];
 
-    recursively_check_stack(0, 1, test_length);
+    printf("Doing Stack Protection Test of length %u with difficulty %u |", test_length, difficulty);
+
+    recursively_check_stack(0, 1, test_length, difficulty);
 
     printf("\n" "\e[0;32m" "SUCCESS" "\e[0m" "\n");
 }
@@ -228,17 +230,28 @@ void unit_test_task(uint32_t pid) {
 
     printf("Testing Overflow Protection\n");
     const uint32_t protection_test_pid = pid + 1;
-    const uint32_t protection_test_length = 1024;
+    const uint16_t protection_test_length = 64;
+    const uint16_t initial_difficulty = 75;
 
-    add_task(stack_protection_test_task, protection_test_pid, 7);
+    uint32_t protection_test_cid = 0;
 
-    const uint32_t protection_test_cid = com_channel_request(protection_test_pid);
-    uint8_t bytes[CHANNEL_SIZE];
-    bytes[0] = protection_test_length >> 24;
-    bytes[1] = protection_test_length >> 16;
-    bytes[2] = protection_test_length >> 8;
-    bytes[3] = protection_test_length;
-    com_channel_write(protection_test_cid, bytes, CHANNEL_SIZE);
+    for (uint16_t difficulty = initial_difficulty; difficulty < 100; difficulty++) {
+       add_task(stack_protection_test_task, protection_test_pid, 8);
+
+        protection_test_cid = com_channel_request(protection_test_pid);
+        uint8_t bytes[4];
+        bytes[0] = difficulty >> 8;
+        bytes[1] = difficulty;
+        bytes[2] = protection_test_length >> 8;
+        bytes[3] = protection_test_length;
+        com_channel_write(protection_test_cid, bytes, 4);
+
+        while (task_exists(protection_test_pid)) {
+            task_yield();
+        }
+
+        com_channel_free(protection_test_cid);
+    }
 
     while(true) {
         task_yield();

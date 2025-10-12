@@ -12,5 +12,6 @@ void task_sleep_ms(uint32_t ms);
 void task_sleep_us(uint64_t us);
 void task_yield();
 void task_end(int32_t code);
+bool task_exists(uint32_t pid);
 
 #endif //SCHEDULER_H
