@@ -175,14 +175,19 @@ void task_display(uint32_t pid) {
 uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth, uint16_t difficulty) {
     const uint32_t c = a + b;
 
-    spin(depth / 64);
+    spin(depth / 128);
 
     if (depth <= 0) {
         return c;
     }
 
-    task_sleep_ms(100 - difficulty);
+    if (depth % difficulty == 0) {
+        task_yield();
+    }
     const uint32_t d = recursively_check_stack(b, c, depth - 1, difficulty);
+
+    // now we verify it
+
     task_sleep_ms(1);
 
     spin(depth / 16);
@@ -231,7 +236,7 @@ void unit_test_task(uint32_t pid) {
     printf("Testing Overflow Protection\n");
     const uint32_t protection_test_pid = pid + 1;
     const uint16_t protection_test_length = 64;
-    const uint16_t initial_difficulty = 75;
+    const uint16_t initial_difficulty = 1;
 
     uint32_t protection_test_cid = 0;
 

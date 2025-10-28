@@ -284,6 +284,7 @@ void get_next_task() {
         if (potential_task->state == TASK_DEAD) {
             free(potential_task->stack);
             potential_task->state = TASK_FREE;
+            num_tasks--;
             continue;
         }
 
@@ -414,6 +415,7 @@ void remove_task(task_t *task) {
         task->state = TASK_ZOMBIE;
     } else {
         task->state = TASK_DEAD;
+        num_tasks--;
     }
     scheduler_spin_unlock(saved_irq);
 
@@ -583,6 +585,10 @@ void task_sleep_ms(uint32_t ms) {
 }
 
 void task_sleep_us(uint64_t us) {
+    if (us == 0) {
+        task_yield();
+    }
+
     const uint32_t saved_irq = scheduler_spin_lock();
     task_t *current_task = get_current_task();
     current_task->state = TASK_WAIT_US;
