@@ -24,7 +24,7 @@
 #endif
 
 #ifndef LOOP_TIME
-#define LOOP_TIME 2             // cycle time in ms, may be fractional
+#define LOOP_TIME 1             // cycle time in ms, may be fractional
                                 // (optimal value was found to be between 1-3 ms)
 #endif
 
@@ -41,7 +41,7 @@
 #endif
 
 #ifndef MIN_STACK_SIZE
-#define MIN_STACK_SIZE 64       // the minimum amount of stack the scheduler will resize down to
+#define MIN_STACK_SIZE 128       // the minimum amount of stack the scheduler will resize down to
 #endif
 
 #ifndef MAX_STACK_SIZE
@@ -49,7 +49,7 @@
 #endif
 
 #ifndef STACK_STEP_SIZE
-#define STACK_STEP_SIZE 32      // the amount of stack the scheduler will give and take from a task at a time
+#define STACK_STEP_SIZE 128      // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
                                 // (you might want to try increasing this if you expect rapid stack usage
                                 // or are experiencing random crashes)
@@ -62,7 +62,7 @@
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
-#define STACK_OVERFLOW_THRESHOLD 24 // a task will be suspended or have its stack resized
+#define STACK_OVERFLOW_THRESHOLD 64 // a task will be suspended or have its stack resized
                                     // when it has less than this many words left free in its stack
                                     // (you might want to try increasing this if you expect rapid stack usage
                                     // or are experiencing random crashes)

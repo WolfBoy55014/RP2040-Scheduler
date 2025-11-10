@@ -1,3 +1,4 @@
+#include <math.h>
 #include <hardware/gpio.h>
 #include <hardware/pwm.h>
 #include <stdio.h>
@@ -172,25 +173,26 @@ void task_display(uint32_t pid) {
         task_yield();
     }
 }
-uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth, uint16_t difficulty) {
+
+uint32_t recursively_check_stack(const uint32_t a, const uint32_t b, uint16_t depth, uint16_t step) {
     const uint32_t c = a + b;
 
-    spin(depth / 128);
+    spin(depth / 2);
 
     if (depth <= 0) {
         return c;
     }
 
-    if (depth % difficulty == 0) {
+    if (depth % step == 0) {
         task_yield();
     }
-    const uint32_t d = recursively_check_stack(b, c, depth - 1, difficulty);
+    const uint32_t d = recursively_check_stack(b, c, depth - 1, step);
 
     // now we verify it
 
     task_sleep_ms(1);
 
-    spin(depth / 16);
+    spin(depth / 2);
 
     // validate result
     if (d - c == b) {
@@ -212,16 +214,18 @@ void stack_protection_test_task(uint32_t pid) {
     uint16_t cid = channels[0];
 
     // get length of test
-    uint8_t bytes[4];
+    uint8_t bytes[2];
     while (!channel_ready_to_read(cid)) { task_yield(); }
-    com_channel_read(cid, bytes, 4);
+    com_channel_read(cid, bytes, 2);
 
     uint16_t difficulty = bytes[0] << 8 | bytes[1];
-    uint16_t test_length = bytes[2] << 8 | bytes[3];
 
-    printf("Doing Stack Protection Test of length %u with difficulty %u |", test_length, difficulty);
+    uint16_t test_length = ((difficulty / 10) * 64) + 64;
+    uint16_t test_step = (uint16_t) (fmodf(((float) difficulty / 10.0f), 1.0f) * (float) test_length);
 
-    recursively_check_stack(0, 1, test_length, difficulty);
+    printf("Doing Stack Protection Test of difficulty: %u (l: %u, s: %u) |", difficulty, test_length, test_step);
+
+    recursively_check_stack(0, 1, test_length, test_step);
 
     printf("\n" "\e[0;32m" "SUCCESS" "\e[0m" "\n");
 }
@@ -235,7 +239,6 @@ void unit_test_task(uint32_t pid) {
 
     printf("Testing Overflow Protection\n");
     const uint32_t protection_test_pid = pid + 1;
-    const uint16_t protection_test_length = 64;
     const uint16_t initial_difficulty = 1;
 
     uint32_t protection_test_cid = 0;
@@ -244,12 +247,10 @@ void unit_test_task(uint32_t pid) {
        add_task(stack_protection_test_task, protection_test_pid, 8);
 
         protection_test_cid = com_channel_request(protection_test_pid);
-        uint8_t bytes[4];
+        uint8_t bytes[2];
         bytes[0] = difficulty >> 8;
         bytes[1] = difficulty;
-        bytes[2] = protection_test_length >> 8;
-        bytes[3] = protection_test_length;
-        com_channel_write(protection_test_cid, bytes, 4);
+        com_channel_write(protection_test_cid, bytes, 2);
 
         while (task_exists(protection_test_pid)) {
             task_yield();
@@ -340,7 +341,7 @@ int main() {
     stdio_init_all();
 
     // add_task(task_display, 10, 2);
-    // add_task(monitor_task, 11, 8);
+    add_task(monitor_task, 11, 8);
     add_task(unit_test_task, 4, 7);
 
     start_kernel();
