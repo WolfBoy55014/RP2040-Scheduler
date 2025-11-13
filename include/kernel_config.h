@@ -19,7 +19,7 @@
 #endif
 
 #ifndef MAX_TASKS
-#define MAX_TASKS 8             // max number of tasks the kernel will accommodate
+#define MAX_TASKS 16            // max number of tasks the kernel will accommodate
                                 // (include an extra for each core for idle tasks)
 #endif
 

@@ -36,7 +36,7 @@ task_t *get_current_task() {
     return scheduler->current_task;
 }
 
-bool is_scheduler_started() {
+bool scheduler_is_started() {
     return get_scheduler()->started;
 }
 
@@ -338,7 +338,7 @@ void isr_hardfault(void) {
     asm("bkpt");
 }
 
-void raise_pendsv() {
+void scheduler_raise_pendsv() {
     *(volatile uint32_t *)(0xe0000000|M0PLUS_ICSR_OFFSET) = (1L<<28);
 }
 
@@ -389,7 +389,7 @@ void isr_systick(void) {
 #endif
 
     // raise PendSV interrupt (handler in assembly!)
-    raise_pendsv();
+    scheduler_raise_pendsv();
 }
 
 int32_t start_systick() {
@@ -419,14 +419,14 @@ void remove_task(task_t *task) {
     }
     scheduler_spin_unlock(saved_irq);
 
-    raise_pendsv();
+    scheduler_raise_pendsv();
 }
 
 void task_return() {
     remove_task(get_current_task());
 }
 
-int32_t add_task(void (*task_function)(uint32_t), const uint32_t id, const uint8_t priority) {
+int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -529,9 +529,9 @@ void idle_task(uint32_t pid) {
     }
 }
 
-void start_scheduler_this_core() {
+void scheduler_start_this_core() {
 
-    add_task(idle_task, 0 + CORE_NUM, 0);
+    task_add(idle_task, 0 + CORE_NUM, 0);
 
     if (num_tasks == 0) {
         PRINT_WARNING("No tasks to run\n");
@@ -549,13 +549,13 @@ void start_scheduler_this_core() {
     PRINT_DEBUG("Timer Started!\n");
 }
 
-int32_t start_kernel() {
+int32_t kernel_start() {
 #ifdef STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
     gpio_put(STATUS_LED_PIN, true);
 #endif
-    init_spin_locks();
+    spin_locks_init();
 #ifdef PROFILE_SCHEDULER
     profile.time_total = 0.0;
     profile.time_scheduling = 0.0;
@@ -566,9 +566,9 @@ int32_t start_kernel() {
 #endif
 #if CORE_COUNT > 1
     multicore_reset_core1();
-    multicore_launch_core1(start_scheduler_this_core);
+    multicore_launch_core1(scheduler_start_this_core);
 #endif
-    start_scheduler_this_core();
+    scheduler_start_this_core();
     set_spsel(2);
     return 0;
 }
@@ -594,7 +594,7 @@ void task_sleep_us(uint64_t us) {
     current_task->state = TASK_WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
     scheduler_spin_unlock(saved_irq);
-    raise_pendsv();
+    scheduler_raise_pendsv();
 }
 
 void task_yield() {
@@ -602,7 +602,7 @@ void task_yield() {
     task_t *current_task = get_current_task();
     current_task->state = TASK_YIELDING;
     scheduler_spin_unlock(saved_irq);
-    raise_pendsv();
+    scheduler_raise_pendsv();
 }
 
 void task_end(int32_t code) {

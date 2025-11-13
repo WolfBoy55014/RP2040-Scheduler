@@ -75,12 +75,12 @@ extern task_t tasks[MAX_TASKS];
 scheduler_t *get_scheduler();
 task_t *get_current_task();
 
-void start_scheduler_this_core();
-bool is_scheduler_started();
+void scheduler_start_this_core();
+bool scheduler_is_started();
 void set_scheduler_started(bool started);
 
 void get_next_task();
-void raise_pendsv();
+void scheduler_raise_pendsv();
 
 /**
  * @brief Get the utilization of the scheduler belonging to a core.

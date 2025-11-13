@@ -3,14 +3,14 @@
 #include <hardware/pwm.h>
 #include <stdio.h>
 #include <pico/stdlib.h>
+#include <pico/multicore.h>
 
 #include "kernel_config.h"
 #include "channel.h"
 #include "md5.h"
 #include "scheduler.h"
 #include "scheduler_internal.h"
-#include "spinlock_internal.h"
-#include "pico/runtime_init.h"
+
 
 void spin(const uint32_t n) {
     switch (n % 4) {
@@ -160,7 +160,7 @@ void task_display(uint32_t pid) {
     while (true) {
         uint16_t connected_channels[NUM_CHANNELS];
         if (get_connected_channels(connected_channels, sizeof(connected_channels) / sizeof(uint16_t)) > 0) {
-            if (channel_ready_to_read(connected_channels[0])) {
+            if (is_channel_ready_to_read(connected_channels[0])) {
                 uint8_t data[4];
                 com_channel_read(connected_channels[0], data, 4);
 
@@ -215,7 +215,7 @@ void stack_protection_test_task(uint32_t pid) {
 
     // get length of test
     uint8_t bytes[2];
-    while (!channel_ready_to_read(cid)) { task_yield(); }
+    while (!is_channel_ready_to_read(cid)) { task_yield(); }
     com_channel_read(cid, bytes, 2);
 
     uint16_t difficulty = bytes[0] << 8 | bytes[1];
@@ -244,7 +244,7 @@ void unit_test_task(uint32_t pid) {
     uint32_t protection_test_cid = 0;
 
     for (uint16_t difficulty = initial_difficulty; difficulty < 100; difficulty++) {
-       add_task(stack_protection_test_task, protection_test_pid, 8);
+       task_add(stack_protection_test_task, protection_test_pid, 8);
 
         protection_test_cid = com_channel_request(protection_test_pid);
         uint8_t bytes[2];
@@ -294,7 +294,7 @@ void monitor_task(uint32_t pid) {
                 continue;
             }
 
-            printf("Task %u: [", task->id);
+            printf("Task %lu: [", task->id);
 
             uint8_t usage = task->cpu_usage;
             for (int u = 0; u < 100; u += 100 / length) {
@@ -317,7 +317,7 @@ void monitor_task(uint32_t pid) {
                 continue;
             }
 
-            printf("Task %u: [", task->id);
+            printf("Task %lu: [", task->id);
 
             uint8_t usage = task->stack_usage;
             for (int u = 0; u < 100; u += 100 / length) {
@@ -328,7 +328,7 @@ void monitor_task(uint32_t pid) {
                 }
             }
 
-            printf("] %u%% (%u bytes)\n", usage, task->stack_size * 4);
+            printf("] %u%% (%lu bytes)\n", usage, task->stack_size * 4);
         }
 
         printf("=================================\n\n");
@@ -341,10 +341,10 @@ int main() {
     stdio_init_all();
 
     // add_task(task_display, 10, 2);
-    add_task(monitor_task, 11, 8);
-    add_task(unit_test_task, 4, 7);
+    task_add(monitor_task, 11, 8);
+    task_add(unit_test_task, 4, 7);
 
-    start_kernel();
+    kernel_start();
 
     while (true) {
         tight_loop_contents();

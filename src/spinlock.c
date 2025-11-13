@@ -8,7 +8,7 @@
 spin_lock_t *spin_lock_scheduler;
 spin_lock_t *spin_lock_channel;
 
-int32_t init_spin_locks() {
+int32_t spin_locks_init() {
     spin_lock_claim(SCHEDULER_SPINLOCK_ID);
     spin_lock_claim(CHANNEL_SPINLOCK_ID);
 

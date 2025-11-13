@@ -10,7 +10,7 @@
 extern spin_lock_t *spin_lock_scheduler;
 extern spin_lock_t *spin_lock_channel;
 
-int32_t init_spin_locks();
+int32_t spin_locks_init();
 
 bool scheduler_spin_locked();
 

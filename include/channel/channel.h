@@ -50,7 +50,7 @@ int32_t com_channel_free(uint16_t channel_id);
  * @param channel_id ID of channel
  * @return Either or not the channel is empty and ready to write to
  */
-bool channel_ready_to_write(uint16_t channel_id);
+bool is_channel_ready_to_write(uint16_t channel_id);
 
 /**
  * @brief Write a buffer of data to a channel
@@ -66,7 +66,7 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t si
  * @param channel_id ID of channel
  * @return Either or not the channel full of new data
  */
-bool channel_ready_to_read(uint16_t channel_id);
+bool is_channel_ready_to_read(uint16_t channel_id);
 
 /**
  * @brief Read the data from a channel and copy it to a provided buffer
