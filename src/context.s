@@ -4,7 +4,7 @@
 
 .thumb
 
-.extern is_scheduler_started
+.extern scheduler_is_started
 .extern set_scheduler_started
 .extern get_current_task
 .extern get_next_task
@@ -39,7 +39,7 @@ set_spsel: // Do not run in interrupt, or it will break!
 isr_pendsv:
     cpsid i                 // disable interrupts
 
-    blx is_scheduler_started // get wither this core's scheduler is started or not
+    blx scheduler_is_started // get wither this core's scheduler is started or not
 
     cmp r0, #0              // compare r0 with 0
     beq first_context_switch // this is the first time running

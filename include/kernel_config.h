@@ -41,7 +41,7 @@
 #endif
 
 #ifndef MIN_STACK_SIZE
-#define MIN_STACK_SIZE 128       // the minimum amount of stack the scheduler will resize down to
+#define MIN_STACK_SIZE 64        // the minimum amount of stack the scheduler will resize down to
 #endif
 
 #ifndef MAX_STACK_SIZE
