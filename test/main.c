@@ -341,7 +341,7 @@ int main() {
     stdio_init_all();
 
     // add_task(task_display, 10, 2);
-    task_add(monitor_task, 11, 8);
+    // task_add(monitor_task, 11, 8);
     task_add(unit_test_task, 4, 7);
 
     kernel_start();
