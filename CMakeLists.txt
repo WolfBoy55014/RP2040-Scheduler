@@ -37,39 +37,63 @@ pico_sdk_init()
 # set(CMAKE_ASM_FLAGS_DEBUG "-Og")
 # set(CMAKE_C_FLAGS_DEBUG "-Og")
 
-# Add executable. Default name is the project name, version 0.2
-add_executable(RP2040-Scheduler
+# ============================================================
+# KERNEL LIBRARY TARGET
+# This can be linked by external projects
+# ============================================================
+
+add_library(rp2040_kernel INTERFACE)
+
+target_sources(rp2040_kernel INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/src/scheduler.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/context.s
+    ${CMAKE_CURRENT_LIST_DIR}/src/channel.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/spinlock.c
+)
+
+target_include_directories(rp2040_kernel INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/include/
+    ${CMAKE_CURRENT_LIST_DIR}/include/scheduler/
+    ${CMAKE_CURRENT_LIST_DIR}/include/channel/
+    ${CMAKE_CURRENT_LIST_DIR}/include/spinlock/
+)
+
+target_link_libraries(rp2040_kernel INTERFACE
+    pico_stdlib
+    hardware_pwm
+    pico_multicore
+)
+
+# ============================================================
+# TEST EXECUTABLE (Optional - only built if this is the main project)
+# ============================================================
+
+# Only build test executable if this is the top-level project
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    
+    add_executable(RP2040-Scheduler
         test/main.c
         test/md5.c
-        src/scheduler.c
-        src/context.s
-        src/channel.c
-        src/spinlock.c
-)
+    )
 
-pico_set_program_name(RP2040-Scheduler "RP2040-Scheduler")
-pico_set_program_version(RP2040-Scheduler "0.2")
+    pico_set_program_name(RP2040-Scheduler "RP2040-Scheduler")
+    pico_set_program_version(RP2040-Scheduler "0.1.2-pre-alpha")
 
-# Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(RP2040-Scheduler 1)
-pico_enable_stdio_usb(RP2040-Scheduler 0)
+    # Modify the below lines to enable/disable output over UART/USB
+    pico_enable_stdio_uart(RP2040-Scheduler 1)
+    pico_enable_stdio_usb(RP2040-Scheduler 0)
 
-# Add the standard library to the build
-target_link_libraries(RP2040-Scheduler
-        pico_stdlib
-        hardware_pwm
+    # Link the kernel library to the test executable
+    target_link_libraries(RP2040-Scheduler
+        rp2040_kernel
         hardware_spi
-        pico_multicore
-)
+    )
 
-# Add the standard include files to the build
-target_include_directories(RP2040-Scheduler PRIVATE
+    # Add test-specific include directories
+    target_include_directories(RP2040-Scheduler PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/test/include/
-        ${CMAKE_CURRENT_LIST_DIR}/include/
-        ${CMAKE_CURRENT_LIST_DIR}/include/scheduler/
-        ${CMAKE_CURRENT_LIST_DIR}/include/channel/
-        ${CMAKE_CURRENT_LIST_DIR}/include/spinlock/
-)
+    )
 
-pico_add_extra_outputs(RP2040-Scheduler)
+    pico_add_extra_outputs(RP2040-Scheduler)
 
+endif()
