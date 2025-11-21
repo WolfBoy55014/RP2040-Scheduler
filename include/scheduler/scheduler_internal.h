@@ -81,6 +81,7 @@ void set_scheduler_started(bool started);
 
 void get_next_task();
 void scheduler_raise_pendsv();
+int32_t refresh_systick();
 
 /**
  * @brief Get the utilization of the scheduler belonging to a core.
