@@ -10,6 +10,12 @@
 
 #define CORE_NUM get_core_num() // just a macro for ease
 
+/* Multicore Signals */
+#define MULTICORE_SIG_UPDATE_SYSTICK 0x53595354     // send to fifo to signal to other cores that
+                                                    // systick should be updated
+#define MULTICORE_SIG_ACKNOWLEDGE 0xAC              // send after responding to a signal
+                                                    // to signal acknowledgement
+
 typedef enum {
     TASK_FREE,
     TASK_RUNNING,
@@ -81,6 +87,8 @@ void set_scheduler_started(bool started);
 
 void get_next_task();
 void scheduler_raise_pendsv();
+void refresh_systick_on_clock_change();
+void refresh_systick_all_cores();
 
 /**
  * @brief Get the utilization of the scheduler belonging to a core.

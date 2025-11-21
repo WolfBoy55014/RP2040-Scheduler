@@ -338,6 +338,44 @@ void isr_hardfault(void) {
     asm("bkpt");
 }
 
+void refresh_systick_on_clock_change() {
+    const uint32_t clock_hz = clock_get_hz(clk_sys);
+    const uint32_t ticks = (clock_hz * LOOP_TIME) / 1000;
+
+    // set when the timer should fire based on new clock speed
+    systick_hw->rvr = ticks - 1;
+
+    // reset systick to zero
+    systick_hw->cvr = 0;
+}
+
+void refresh_systick_all_cores() {
+    // update the systick on this core
+    refresh_systick_on_clock_change();
+
+#if CORE_COUNT > 1
+    // signal the other core to do the same
+    multicore_fifo_push_blocking(MULTICORE_SIG_UPDATE_SYSTICK);
+
+    // wait for a response from the other core
+    multicore_fifo_pop_blocking();
+#endif
+}
+
+#if CORE_COUNT > 1
+void check_multicore_signals() {
+    if (multicore_fifo_rvalid()) {
+        uint32_t cmd = multicore_fifo_pop_blocking();
+
+        if (cmd == MULTICORE_SIG_UPDATE_SYSTICK) {
+            refresh_systick_on_clock_change();
+            // acknowledge
+            multicore_fifo_push_blocking(MULTICORE_SIG_ACKNOWLEDGE);
+        }
+    }
+}
+#endif
+
 void scheduler_raise_pendsv() {
     *(volatile uint32_t *)(0xe0000000|M0PLUS_ICSR_OFFSET) = (1L<<28);
 }
@@ -346,6 +384,12 @@ void isr_systick(void) {
 #ifdef PROFILE_SCHEDULER
     uint32_t start_time = time_us_32();
 #endif
+
+#if CORE_COUNT > 1
+    // read and handle signals from other core
+    check_multicore_signals();
+#endif
+
     scheduler_t *scheduler = get_scheduler();
     scheduler->ticks_executing++;
     task_t *task = get_current_task();
@@ -392,7 +436,7 @@ void isr_systick(void) {
     scheduler_raise_pendsv();
 }
 
-int32_t start_systick() {
+void start_systick() {
     const uint32_t clock_hz = clock_get_hz(clk_sys);
     const uint32_t ticks = (clock_hz * LOOP_TIME) / 1000;     // loop time in ms
 
@@ -402,8 +446,6 @@ int32_t start_systick() {
     systick_hw->csr = M0PLUS_SYST_CSR_CLKSOURCE_BITS |  // use system clock
                       M0PLUS_SYST_CSR_TICKINT_BITS |    // enable interrupt
                       M0PLUS_SYST_CSR_ENABLE_BITS;      // enable SysTick
-
-    return 0;
 }
 
 void remove_task(task_t *task) {
