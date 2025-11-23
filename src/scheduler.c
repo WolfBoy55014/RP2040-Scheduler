@@ -448,14 +448,6 @@ void start_systick() {
                       M0PLUS_SYST_CSR_ENABLE_BITS;      // enable SysTick
 }
 
-int32_t refresh_systick() {
-    return start_systick();
-}
-
-int32_t refresh_systick() {
-    return start_systick();
-}
-
 void remove_task(task_t *task) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
