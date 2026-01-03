@@ -5,6 +5,9 @@
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 /**
  * @brief Check if the current task owns a channel or not
  * @param channel_id ID of the channel

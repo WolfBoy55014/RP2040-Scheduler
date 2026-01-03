@@ -25,21 +25,26 @@ scheduler_profile_t profile;
 #endif
 
 /* Public Assembly Functions */
+__attribute__((noinline))
 extern void set_spsel(uint32_t control);
 
+__attribute__((noinline))
 scheduler_t *get_scheduler() {
     return &schedulers[CORE_NUM];
 }
 
+__attribute__((noinline))
 task_t *get_current_task() {
     scheduler_t *scheduler = get_scheduler();
     return scheduler->current_task;
 }
 
+__attribute__((noinline))
 bool scheduler_is_started() {
     return get_scheduler()->started;
 }
 
+__attribute__((noinline))
 void set_scheduler_started(bool started) {
     get_scheduler()->started = started;
 }
@@ -77,7 +82,7 @@ void calculate_cpu_usage() {
     for (int t = 0; t < MAX_TASKS; t++) {
         task_t *task = &tasks[t];
 
-        if (task->stack == TASK_FREE) {
+        if (task->state == TASK_FREE) {
             continue;
         }
 
@@ -249,6 +254,7 @@ void calculate_stack_usage() {
     scheduler_spin_unlock(saved_irq);
 }
 
+__attribute__((noinline))
 void get_next_task() {
     const uint32_t saved_irq = scheduler_spin_lock();
 #if defined(PROFILE_SCHEDULER) || defined(PRINT)
@@ -329,6 +335,7 @@ void get_next_task() {
     scheduler_spin_unlock(saved_irq);
 }
 
+__attribute__((noinline))
 void isr_hardfault(void) {
 #ifdef STATUS_LED
     gpio_init(STATUS_LED_PIN);
@@ -380,6 +387,7 @@ void scheduler_raise_pendsv() {
     *(volatile uint32_t *)(0xe0000000|M0PLUS_ICSR_OFFSET) = (1L<<28);
 }
 
+__attribute__((noinline))
 void isr_systick(void) {
 #ifdef PROFILE_SCHEDULER
     uint32_t start_time = time_us_32();
@@ -448,6 +456,7 @@ void start_systick() {
                       M0PLUS_SYST_CSR_ENABLE_BITS;      // enable SysTick
 }
 
+__attribute__((noinline))
 void remove_task(task_t *task) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
@@ -464,10 +473,12 @@ void remove_task(task_t *task) {
     scheduler_raise_pendsv();
 }
 
+__attribute__((noinline))
 void task_return() {
     remove_task(get_current_task());
 }
 
+__attribute__((noinline))
 int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
@@ -565,6 +576,7 @@ int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8
     return 0;
 }
 
+__attribute__((noinline))
 void idle_task(uint32_t pid) {
     while (true) {
         __wfi();
