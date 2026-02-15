@@ -49,6 +49,7 @@ target_sources(rp2040_kernel INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/context.s
     ${CMAKE_CURRENT_LIST_DIR}/src/channel.c
     ${CMAKE_CURRENT_LIST_DIR}/src/spinlock.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/com_channel_protocol.c
 )
 
 target_include_directories(rp2040_kernel INTERFACE
@@ -56,6 +57,7 @@ target_include_directories(rp2040_kernel INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/include/scheduler/
     ${CMAKE_CURRENT_LIST_DIR}/include/channel/
     ${CMAKE_CURRENT_LIST_DIR}/include/spinlock/
+    ${CMAKE_CURRENT_LIST_DIR}/include/lib/
 )
 
 target_link_libraries(rp2040_kernel INTERFACE
