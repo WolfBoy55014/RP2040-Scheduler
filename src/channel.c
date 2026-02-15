@@ -216,7 +216,7 @@ bool is_channel_ready_to_write(uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t size) {
+int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (size > CHANNEL_SIZE) {
@@ -281,7 +281,7 @@ bool is_channel_ready_to_read(uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint32_t size) {
+int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size) {
     uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {

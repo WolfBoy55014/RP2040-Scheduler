@@ -2,6 +2,7 @@
 #define SCHEDULER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* Basic Scheduler Functions */
 int32_t kernel_start();

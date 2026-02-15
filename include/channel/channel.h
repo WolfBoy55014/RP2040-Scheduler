@@ -62,7 +62,7 @@ bool is_channel_ready_to_write(uint16_t channel_id);
  * @param size The length of @code bytes@endcode
  * @return -1 if @code bytes@endcode is too long,\n -2 if the current task is not connected to the channel,\n the number of bytes written if successful
  */
-int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint32_t size);
+int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t size);
 
 /**
  * @brief Check if channel has data ready to read
@@ -78,6 +78,6 @@ bool is_channel_ready_to_read(uint16_t channel_id);
  * @param size Size of the provided buffer
  * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n the amount of data read if successful
  */
-int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint32_t size);
+int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size);
 
 #endif //CHANNEL_H
