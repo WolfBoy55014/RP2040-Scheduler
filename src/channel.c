@@ -10,7 +10,7 @@
 
 com_channel_t com_channels[NUM_CHANNELS];
 
-bool is_owner_of_channel(uint16_t channel_id) {
+bool is_owner_of_channel(const uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
     if (channel_id >= NUM_CHANNELS) {
@@ -31,7 +31,7 @@ bool is_owner_of_channel(uint16_t channel_id) {
     return is_owner;
 }
 
-bool is_connected_to_channel(uint16_t channel_id) {
+bool is_connected_to_channel(const uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
     if (channel_id >= NUM_CHANNELS) {
@@ -53,7 +53,7 @@ bool is_connected_to_channel(uint16_t channel_id) {
     return is_connected;
 }
 
-uint32_t get_connected_channels(uint16_t *channel_ids, uint16_t size) {
+uint32_t get_connected_channels(uint16_t *channel_ids, const uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
     uint32_t num_connected = 0;
 
@@ -74,7 +74,7 @@ uint32_t get_connected_channels(uint16_t *channel_ids, uint16_t size) {
     return num_connected;
 }
 
-int32_t com_channel_request(uint32_t with_pid) {
+int32_t com_channel_request(const uint32_t with_pid) {
     const uint32_t saved_irq = channel_spin_lock();
 
     task_t *with = NULL;
@@ -145,7 +145,7 @@ int32_t com_channel_request(uint32_t with_pid) {
     return channel_id;
 }
 
-int32_t com_channel_free(uint16_t channel_id) {
+int32_t com_channel_free(const uint16_t channel_id) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     // check if channel exists
@@ -187,7 +187,7 @@ int32_t com_channel_free(uint16_t channel_id) {
     return channel_id;
 }
 
-bool is_channel_ready_to_write(uint16_t channel_id) {
+bool is_channel_ready_to_write(const uint16_t channel_id) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
@@ -216,7 +216,7 @@ bool is_channel_ready_to_write(uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t size) {
+int32_t com_channel_write(const uint16_t channel_id, const uint8_t *bytes, const uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (size > CHANNEL_SIZE) {
@@ -240,6 +240,11 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t si
         fifo = &channel->fifo_rx;
     }
 
+    if (fifo->full) {
+        restore_interrupts(saved_irq);
+        return -3;
+    }
+
     channel_spin_lock_unsafe();
     for (int b = 0; b < size; b++) {
         fifo->bytes[b] = bytes[b];
@@ -252,7 +257,7 @@ int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t si
     return size;
 }
 
-bool is_channel_ready_to_read(uint16_t channel_id) {
+bool is_channel_ready_to_read(const uint16_t channel_id) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
@@ -281,7 +286,7 @@ bool is_channel_ready_to_read(uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size) {
+int32_t com_channel_read(const uint16_t channel_id, uint8_t *buffer, const uint16_t size) {
     uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
@@ -298,6 +303,11 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size) {
         fifo = &channel->fifo_rx;
     } else {
         fifo = &channel->fifo_tx;
+    }
+
+    if (!fifo->full) {
+        restore_interrupts(saved_irq);
+        return -3;
     }
 
     channel_spin_lock_unsafe();
@@ -317,6 +327,84 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size) {
 
     channel_spin_unlock(saved_irq);
     return fifo_count;
+}
+
+int32_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t *buffer, const uint16_t size) {
+    uint32_t saved_irq = save_and_disable_interrupts();
+
+    if (!is_connected_to_channel(channel_id)) {
+        restore_interrupts(saved_irq);
+        return -2;
+    }
+
+    channel_spin_lock_unsafe();
+    com_channel_t *channel = &com_channels[channel_id];
+    channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
+
+    if (is_owner_of_channel(channel_id)) {
+        fifo = &channel->fifo_rx;
+    } else {
+        fifo = &channel->fifo_tx;
+    }
+
+    if (!fifo->full) {
+        restore_interrupts(saved_irq);
+        return -3;
+    }
+
+    channel_spin_lock_unsafe();
+    uint32_t fifo_count = fifo->count;
+
+    if (size < fifo_count) {
+        channel_spin_unlock(saved_irq);
+        return -1;
+    }
+
+    for (int b = 0; b < fifo_count; b++) {
+        buffer[b] = fifo->bytes[b];
+    }
+
+    channel_spin_unlock(saved_irq);
+    return fifo_count;
+}
+
+uint8_t com_channel_peek(const uint16_t channel_id) {
+    uint32_t saved_irq = save_and_disable_interrupts();
+
+    if (!is_connected_to_channel(channel_id)) {
+        restore_interrupts(saved_irq);
+        return 0;
+    }
+
+    channel_spin_lock_unsafe();
+    com_channel_t *channel = &com_channels[channel_id];
+    channel_fifo_t *fifo;
+    channel_spin_unlock_unsafe();
+
+    if (is_owner_of_channel(channel_id)) {
+        fifo = &channel->fifo_rx;
+    } else {
+        fifo = &channel->fifo_tx;
+    }
+
+    if (!fifo->full) {
+        restore_interrupts(saved_irq);
+        return 0;
+    }
+
+    channel_spin_lock_unsafe();
+    const uint32_t fifo_count = fifo->count;
+
+    if (fifo_count < 1) {
+        channel_spin_unlock(saved_irq);
+        return 0;
+    }
+
+    const uint8_t byte = fifo->bytes[0];
+
+    channel_spin_unlock(saved_irq);
+    return byte;
 }
 
 

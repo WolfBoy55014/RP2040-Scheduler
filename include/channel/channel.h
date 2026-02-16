@@ -60,7 +60,7 @@ bool is_channel_ready_to_write(uint16_t channel_id);
  * @param channel_id ID of the channel to write to
  * @param bytes Array of data to write
  * @param size The length of @code bytes@endcode
- * @return -1 if @code bytes@endcode is too long,\n -2 if the current task is not connected to the channel,\n the number of bytes written if successful
+ * @return -1 if @code bytes@endcode is too long,\n -2 if the current task is not connected to the channel,\n -3 if the channel is already full,\n the number of bytes written if successful
  */
 int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t size);
 
@@ -76,8 +76,26 @@ bool is_channel_ready_to_read(uint16_t channel_id);
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
  * @param size Size of the provided buffer
- * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n the amount of data read if successful
+ * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
  */
 int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size);
+
+/**
+ * @brief Read the data from a channel and copy it to a provided buffer without clearing the channel after
+ * @param channel_id ID of the channel to read from
+ * @param buffer Array to copy data to
+ * @param size Size of the provided buffer
+ * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
+ */
+int32_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t size);
+
+/**
+ * Preview the first byte of a channel, without resetting it \n
+ * Useful for checking for protocols
+ * @param channel_id ID of the channel to peek into
+ * @return the first byte in the channel, if there is an error it will return 0,
+ *         but it will also return 0 if the first byte is 0.
+ */
+uint8_t com_channel_peek(uint16_t channel_id);
 
 #endif //CHANNEL_H
