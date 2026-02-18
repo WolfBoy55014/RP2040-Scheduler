@@ -28,6 +28,16 @@
                                 // (optimal value was found to be between 1-3 ms)
 #endif
 
+#ifndef USE_GOVERNOR
+#define USE_GOVERNOR 1          // run the cpu frequency governor
+#endif
+
+#if USE_GOVERNOR == 1
+#ifndef GOVERNOR_FREQ
+#define GOVERNOR_FREQ 500       // run the governor every this many scheduler loops
+#endif
+
+
 // --- Stack Configs ---
 
 // all stack sizes are measured in 32 bit *words*
@@ -41,15 +51,15 @@
 #endif
 
 #ifndef MIN_STACK_SIZE
-#define MIN_STACK_SIZE 64        // the minimum amount of stack the scheduler will resize down to
+#define MIN_STACK_SIZE 64       // the minimum amount of stack the scheduler will resize down to
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE 16384     // the maximum amount of stack the scheduler will give a task before suspending it
+#define MAX_STACK_SIZE 16384    // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
 #ifndef STACK_STEP_SIZE
-#define STACK_STEP_SIZE 128      // the amount of stack the scheduler will give and take from a task at a time
+#define STACK_STEP_SIZE 128     // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
                                 // (you might want to try increasing this if you expect rapid stack usage
                                 // or are experiencing random crashes)
@@ -69,12 +79,12 @@
 #endif
 
 #ifndef STACK_MONITOR_FREQ
-#define STACK_MONITOR_FREQ 6        // perform a stack usage calculation for this many scheduler loops
-                                    // can add large overhead to the scheduler which can be roughly calculated:
-                                    // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
-                                    // (this could be set very high if you think your tasks won't need more stack)
-                                    // (if you do experience crashes, you can try reducing this,
-                                    // but try STACK_OVERFLOW_THRESHOLD first)
+#define STACK_MONITOR_FREQ 6    // perform a stack usage calculation for this many scheduler loops
+                                // can add large overhead to the scheduler which can be roughly calculated:
+                                // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
+                                // (this could be set very high if you think your tasks won't need more stack)
+                                // (if you do experience crashes, you can try reducing this,
+                                // but try STACK_OVERFLOW_THRESHOLD first)
 #endif
 
 #ifndef STACK_FILLER
@@ -118,7 +128,7 @@
 
 // --- Debug ---
 
-// #define PRINT                   // either or not to print debug messages
+// #define PRINT                // either or not to print debug messages
 
 #ifdef PRINT
 #define PRINT_WARNING(msg) printf(msg)

@@ -13,6 +13,7 @@
 
 #include <string.h>
 
+#include "governor.h"
 #include "spinlock_internal.h"
 #include "kernel_config.h"
 
@@ -415,6 +416,11 @@ void isr_systick(void) {
         if ((scheduler->ticks_executing % 100) == 0) {
             calculate_cpu_usage();
         }
+#if USE_GOVERNOR == 1
+        if ((scheduler->ticks_executing % GOVERNOR_FREQ) == 0) {
+            governor_update();
+        }
+#endif
     }
 
 #ifdef PROFILE_SCHEDULER
