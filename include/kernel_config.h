@@ -36,6 +36,7 @@
 #ifndef GOVERNOR_FREQ
 #define GOVERNOR_FREQ 500       // run the governor every this many scheduler loops
 #endif
+#endif
 
 
 // --- Stack Configs ---
@@ -111,7 +112,11 @@
 #endif
 
 #ifndef CHANNEL_SIZE
-#define CHANNEL_SIZE 16         // length of each fifo in a communication channel (in bytes)
+#define CHANNEL_SIZE 16         // length of each fifo in a communication channel (in bytes) (must be less that the 16-bit integer limit)
+#endif
+
+#ifndef CHANNEL_AUTO_FREE_DELAY
+#define CHANNEL_AUTO_FREE_DELAY 500 // how many scheduler loops have to pass before a channel will be automatically freed
 #endif
 
 // --- Spinlock Configs ---

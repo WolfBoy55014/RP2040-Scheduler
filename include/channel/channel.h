@@ -28,18 +28,20 @@ bool is_connected_to_channel(uint16_t channel_id);
  * @param size Length of @code channel_ids@endcode array
  * @return -1 if @code channel_ids@endcode was not long enough, the number of connected channels if positive
  */
-uint32_t get_connected_channels(uint16_t *channel_ids, uint16_t size);
+int64_t get_connected_channels(uint16_t* channel_ids, uint16_t size);
 
 /**
  * @brief Request to be connected to the task with pid @code with_pid@endcode.
  * If there is a free communication channel,
  * a channel will be allocated and connected to the current task and task @code with_pid@endcode.
  * The current task will become the owner of the channel.
+ * If @code autoFree@endcode is true, the channel will be automatically deallocated after inactivity
  *
  * @param with_pid pid of the task the current task will be connected to
+ * @param autoFree either or not the channel should be automatically freed on inactivity
  * @return -1 if no available channels,\n -2 if no tasks have pid @code with_pid@endcode,\n -3 if the current task has pid @code with_pid@endcode,\n 0+ channel id if successful.
  */
-int32_t com_channel_request(uint32_t with_pid);
+int32_t com_channel_request(uint32_t with_pid, bool autoFree);
 
 /**
  * @brief Disconnect and free a communication channel
@@ -62,7 +64,7 @@ bool is_channel_ready_to_write(uint16_t channel_id);
  * @param size The length of @code bytes@endcode
  * @return -1 if @code bytes@endcode is too long,\n -2 if the current task is not connected to the channel,\n -3 if the channel is already full,\n the number of bytes written if successful
  */
-int32_t com_channel_write(uint16_t channel_id, const uint8_t *bytes, uint16_t size);
+int32_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
 
 /**
  * @brief Check if channel has data ready to read
@@ -78,7 +80,7 @@ bool is_channel_ready_to_read(uint16_t channel_id);
  * @param size Size of the provided buffer
  * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
  */
-int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size);
+int64_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t size);
 
 /**
  * @brief Read the data from a channel and copy it to a provided buffer without clearing the channel after
@@ -87,7 +89,7 @@ int32_t com_channel_read(uint16_t channel_id, uint8_t *buffer, uint16_t size);
  * @param size Size of the provided buffer
  * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
  */
-int32_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t size);
+int64_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t size);
 
 /**
  * Preview the first byte of a channel, without resetting it \n

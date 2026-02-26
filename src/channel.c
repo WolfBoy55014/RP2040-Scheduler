@@ -5,10 +5,42 @@
 #include "channel_internal.h"
 #include "channel.h"
 
+#include "scheduler.h"
 #include "spinlock_internal.h"
 #include "hardware/sync.h"
 
 com_channel_t com_channels[NUM_CHANNELS];
+
+uint8_t channel_garbage_collect() {
+    // go through all the channels,
+    // and check if they can be automatically removed
+
+    for (uint16_t i = 0; i < NUM_CHANNELS; i++) {
+        com_channel_t* channel = &com_channels[i];
+
+        if (channel->state == CHANNEL_FREE) {
+            continue;
+        }
+
+        // remove it if it's owner no longer exists
+        if (!task_exists(channel->owner->id)) {
+            com_channel_free(i);
+            continue;
+        }
+
+        // remove it if it's set to auto free
+        if (channel->can_auto_free) {
+            if (channel->inactivity_cooldown > 0) {
+                channel->inactivity_cooldown -= 100;
+            }
+            else {
+                com_channel_free(i);
+            }
+        }
+    }
+
+    return 0;
+}
 
 bool is_owner_of_channel(const uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
@@ -18,7 +50,12 @@ bool is_owner_of_channel(const uint16_t channel_id) {
         return false;
     }
 
-    com_channel_t *channel = &com_channels[channel_id];
+    if (is_privileged()) {
+        channel_spin_unlock(saved_irq);
+        return true;
+    }
+
+    com_channel_t* channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
         channel_spin_unlock(saved_irq);
@@ -39,27 +76,31 @@ bool is_connected_to_channel(const uint16_t channel_id) {
         return false;
     }
 
-    com_channel_t *channel = &com_channels[channel_id];
+    if (is_privileged()) {
+        channel_spin_unlock(saved_irq);
+        return true;
+    }
+
+    com_channel_t* channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
         channel_spin_unlock(saved_irq);
         return false;
     }
 
-    task_t *current_task = get_current_task();
+    task_t* current_task = get_current_task();
     bool is_connected = (current_task == channel->owner | current_task == channel->partner);
 
     channel_spin_unlock(saved_irq);
     return is_connected;
 }
 
-uint32_t get_connected_channels(uint16_t *channel_ids, const uint16_t size) {
+int64_t get_connected_channels(uint16_t* channel_ids, const uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
     uint32_t num_connected = 0;
 
     for (uint32_t c = 0; c < NUM_CHANNELS; c++) {
         if (is_connected_to_channel(c)) {
-
             if (num_connected >= size) {
                 restore_interrupts(saved_irq);
                 return -1;
@@ -74,15 +115,15 @@ uint32_t get_connected_channels(uint16_t *channel_ids, const uint16_t size) {
     return num_connected;
 }
 
-int32_t com_channel_request(const uint32_t with_pid) {
+int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     const uint32_t saved_irq = channel_spin_lock();
 
-    task_t *with = NULL;
-    com_channel_t *channel = NULL;
+    task_t* with = NULL;
+    com_channel_t* channel = NULL;
     int32_t channel_id = -1;
 
     // check if `with_pid` matches the current (callee's) pid
-    task_t *current_task = get_current_task();
+    task_t* current_task = get_current_task();
     if (current_task->id == with_pid) {
         channel_spin_unlock(saved_irq);
         return -3;
@@ -140,6 +181,8 @@ int32_t com_channel_request(const uint32_t with_pid) {
     channel->fifo_tx.full = 0;
 
     channel->state = CHANNEL_CONNECTED;
+    channel->can_auto_free = autoFree;
+    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
     return channel_id;
@@ -161,7 +204,7 @@ int32_t com_channel_free(const uint16_t channel_id) {
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
+    com_channel_t* channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
         channel_spin_unlock(saved_irq);
@@ -182,6 +225,8 @@ int32_t com_channel_free(const uint16_t channel_id) {
 
     // free channel
     channel->state = CHANNEL_FREE;
+    channel->can_auto_free = false;
+    channel->inactivity_cooldown = 0;
 
     channel_spin_unlock(saved_irq);
     return channel_id;
@@ -196,13 +241,14 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_tx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_rx;
     }
 
@@ -216,7 +262,7 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_write(const uint16_t channel_id, const uint8_t *bytes, const uint16_t size) {
+int32_t com_channel_write(const uint16_t channel_id, const uint8_t* bytes, const uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
     if (size > CHANNEL_SIZE) {
@@ -230,13 +276,14 @@ int32_t com_channel_write(const uint16_t channel_id, const uint8_t *bytes, const
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_tx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_rx;
     }
 
@@ -252,6 +299,7 @@ int32_t com_channel_write(const uint16_t channel_id, const uint8_t *bytes, const
 
     fifo->count = size;
     fifo->full = 1;
+    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
     return size;
@@ -266,13 +314,14 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_tx;
     }
 
@@ -286,7 +335,7 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_read(const uint16_t channel_id, uint8_t *buffer, const uint16_t size) {
+int64_t com_channel_read(const uint16_t channel_id, uint8_t* buffer, const uint16_t size) {
     uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
@@ -295,13 +344,14 @@ int32_t com_channel_read(const uint16_t channel_id, uint8_t *buffer, const uint1
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_tx;
     }
 
@@ -324,12 +374,13 @@ int32_t com_channel_read(const uint16_t channel_id, uint8_t *buffer, const uint1
 
     fifo->count = 0;
     fifo->full = 0;
+    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
     return fifo_count;
 }
 
-int32_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t *buffer, const uint16_t size) {
+int64_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t* buffer, const uint16_t size) {
     uint32_t saved_irq = save_and_disable_interrupts();
 
     if (!is_connected_to_channel(channel_id)) {
@@ -338,13 +389,14 @@ int32_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t *buffer, co
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_tx;
     }
 
@@ -365,6 +417,8 @@ int32_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t *buffer, co
         buffer[b] = fifo->bytes[b];
     }
 
+    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
+
     channel_spin_unlock(saved_irq);
     return fifo_count;
 }
@@ -378,13 +432,14 @@ uint8_t com_channel_peek(const uint16_t channel_id) {
     }
 
     channel_spin_lock_unsafe();
-    com_channel_t *channel = &com_channels[channel_id];
-    channel_fifo_t *fifo;
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
     channel_spin_unlock_unsafe();
 
     if (is_owner_of_channel(channel_id)) {
         fifo = &channel->fifo_rx;
-    } else {
+    }
+    else {
         fifo = &channel->fifo_tx;
     }
 
@@ -403,8 +458,8 @@ uint8_t com_channel_peek(const uint16_t channel_id) {
 
     const uint8_t byte = fifo->bytes[0];
 
+    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
+
     channel_spin_unlock(saved_irq);
     return byte;
 }
-
-

@@ -13,6 +13,7 @@
 
 #include <string.h>
 
+#include "channel_internal.h"
 #include "governor.h"
 #include "spinlock_internal.h"
 #include "kernel_config.h"
@@ -28,6 +29,9 @@ scheduler_profile_t profile;
 /* Public Assembly Functions */
 __attribute__((noinline))
 extern void set_spsel(uint32_t control);
+
+__attribute__((noinline))
+extern bool is_privileged();
 
 __attribute__((noinline))
 scheduler_t *get_scheduler() {
@@ -412,6 +416,9 @@ void isr_systick(void) {
     if (CORE_NUM == 0) {
         if ((scheduler->ticks_executing % STACK_MONITOR_FREQ) == 0) {
             calculate_stack_usage();
+        }
+        if ((scheduler->ticks_executing % 100) == 0) {
+            channel_garbage_collect();
         }
         if ((scheduler->ticks_executing % 100) == 0) {
             calculate_cpu_usage();

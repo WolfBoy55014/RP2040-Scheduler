@@ -20,7 +20,7 @@ uint8_t target_utilization = GOVERNOR_TARGET_BALANCED;
 
 uint32_t current_freq = GOVERNOR_DEFAULT_FREQ;
 
-void kelp_governor_set_power_mode(uint8_t power_mode) {
+void governor_set_mode(uint8_t power_mode) {
     current_power_mode = power_mode;
 
     switch (power_mode) {
@@ -39,7 +39,7 @@ void kelp_governor_set_power_mode(uint8_t power_mode) {
     }
 }
 
-uint8_t kelp_governor_get_power_mode() {
+uint8_t governor_get_mode() {
     return current_power_mode;
 }
 
@@ -61,7 +61,7 @@ void governor_update() {
     // printf(">core_usage: %u\r\n", core_usage);
 
     if (core_usage > target_utilization + GOVERNOR_TARGET_TOLERANCE) {
-        if (new_freq < 9) {
+        if (new_freq < 11) {
             new_freq++;
         }
     }
@@ -85,14 +85,16 @@ void governor_update() {
 
             // decrease voltage after decreasing frequency
             if (new_freq < current_freq) {
+                busy_wait_us(10);  // Let clock stabilize
                 vreg_set_voltage(target_voltage);
             }
 
             current_freq = new_freq;
 
             refresh_systick_all_cores();
-            // TODO: is this vvv necessary?
             stdio_init_all();
+
+            busy_wait_us(10);
 
             // printf("Successfully set system clock frequency to %lu\n", governor_frequencies[current_freq]);
         }

@@ -24,13 +24,21 @@ typedef struct {
 } channel_fifo_t;
 
 typedef struct {
-    task_t *owner;
-    task_t *partner;
+    task_t* owner;
+    task_t* partner;
+    uint16_t inactivity_cooldown;
+    uint8_t can_auto_free;
     channel_fifo_t fifo_rx;
     channel_fifo_t fifo_tx;
     channel_state_t state;
 } com_channel_t;
 
 extern com_channel_t com_channels[NUM_CHANNELS];
+
+/**
+ * Find and free up inactive channels.
+ * @return
+ */
+uint8_t channel_garbage_collect();
 
 #endif //CHANNEL_INTERNAL_H
