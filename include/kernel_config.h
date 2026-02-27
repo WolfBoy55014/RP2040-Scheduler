@@ -116,7 +116,7 @@
 #endif
 
 #ifndef CHANNEL_AUTO_FREE_DELAY
-#define CHANNEL_AUTO_FREE_DELAY 500 // how many scheduler loops have to pass before a channel will be automatically freed
+#define CHANNEL_AUTO_FREE_DELAY 5000 // how many scheduler loops have to pass before a channel will be automatically freed
 #endif
 
 // --- Spinlock Configs ---
