@@ -6,6 +6,7 @@
 #include "channel.h"
 
 #include "scheduler.h"
+#include "scheduler_internal.h"
 #include "spinlock_internal.h"
 #include "hardware/sync.h"
 

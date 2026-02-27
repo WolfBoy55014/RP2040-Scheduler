@@ -33,21 +33,21 @@ set_spsel: // Do not run in interrupt, or it will break!
     isb
     bx lr
 
-.global is_priviliged
-.type is_priviliged, %function
+.global is_privileged
+.type is_privileged, %function
 
-is_priviliged:
-    msr r0, msp
+is_privileged:
+    mrs r0, msp
     mov r1, sp
 
     cmp r0, r1
     beq priviliged_true
 
-    mov r0, #0
+    movs r0, #0
     bx lr
 
 priviliged_true:
-    mov r0, #1
+    movs r0, #1
     bx lr
 
 .global isr_pendsv

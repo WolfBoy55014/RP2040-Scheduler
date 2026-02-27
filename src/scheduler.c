@@ -31,9 +31,6 @@ __attribute__((noinline))
 extern void set_spsel(uint32_t control);
 
 __attribute__((noinline))
-extern bool is_privileged();
-
-__attribute__((noinline))
 scheduler_t *get_scheduler() {
     return &schedulers[CORE_NUM];
 }
