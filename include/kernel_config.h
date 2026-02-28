@@ -32,9 +32,13 @@
 #define USE_GOVERNOR 1          // run the cpu frequency governor
 #endif
 
+#ifndef CPU_USAGE_FREQ
+#define CPU_USAGE_FREQ 103      // calculate average cpu usage every this many milliseconds
+#endif
+
 #if USE_GOVERNOR == 1
 #ifndef GOVERNOR_FREQ
-#define GOVERNOR_FREQ 500       // run the governor every this many scheduler loops
+#define GOVERNOR_FREQ 503       // run the governor every this many milliseconds
 #endif
 #endif
 
@@ -80,7 +84,7 @@
 #endif
 
 #ifndef STACK_MONITOR_FREQ
-#define STACK_MONITOR_FREQ 6    // perform a stack usage calculation for this many scheduler loops
+#define STACK_MONITOR_FREQ 7    // perform a stack usage calculation every this many milliseconds
                                 // can add large overhead to the scheduler which can be roughly calculated:
                                 // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
                                 // (this could be set very high if you think your tasks won't need more stack)
@@ -116,7 +120,7 @@
 #endif
 
 #ifndef CHANNEL_AUTO_FREE_DELAY
-#define CHANNEL_AUTO_FREE_DELAY 5000 // how many scheduler loops have to pass before a channel will be automatically freed
+#define CHANNEL_AUTO_FREE_DELAY 5000 // how many milliseconds have to pass before a channel will be automatically freed
 #endif
 
 // --- Spinlock Configs ---

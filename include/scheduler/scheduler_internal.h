@@ -56,6 +56,7 @@ typedef struct {
     uint32_t current_task_index;
     uint32_t started;
     uint32_t ticks_executing;
+    uint64_t ms_since_start;
     uint32_t ticks_idling;
     uint8_t core_usage;
 } scheduler_t;

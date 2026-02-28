@@ -32,7 +32,7 @@ uint8_t channel_garbage_collect() {
         // remove it if it's set to auto free
         if (channel->can_auto_free) {
             if (channel->inactivity_cooldown > 0) {
-                channel->inactivity_cooldown -= 100;
+                channel->inactivity_cooldown -= 101;
             }
             else {
                 com_channel_free(i);
