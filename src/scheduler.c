@@ -53,9 +53,6 @@ void set_scheduler_started(bool started) {
 
 void calculate_cpu_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
-#ifdef PROFILE_SCHEDULER
-    uint32_t start_time = time_us_32();
-#endif
 
     uint32_t total_ticks_executing = 0;
     uint32_t total_ticks_idling = 0;
@@ -91,9 +88,7 @@ void calculate_cpu_usage() {
         task->cpu_usage = (task->ticks_executing * 100) / total_ticks_executing;
         task->ticks_executing = 0;
     }
-#ifdef PROFILE_SCHEDULER
-    profile.time_cpu_metrics += (time_us_32() - start_time) / 1000.0f;
-#endif
+
     scheduler_spin_unlock(saved_irq);
 }
 
@@ -113,10 +108,10 @@ uint8_t get_core_usage(const uint8_t core_num) {
 }
 
 uint32_t resize_stack(task_t *task, uint32_t new_size) {
-#ifdef DYNAMIC_STACK
-#if defined(PROFILE_SCHEDULER) || defined(PRINT)
-    uint32_t start_time = time_us_32();
+#ifdef PROFILE_SCHEDULER
+    profile.ran_stack_resize = true;
 #endif
+#ifdef DYNAMIC_STACK
 
     if (new_size > MAX_STACK_SIZE) {
         new_size = MAX_STACK_SIZE;
@@ -156,9 +151,6 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
 #ifdef PRINT
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
 #endif
-#ifdef PROFILE_SCHEDULER
-    profile.time_stack_resizing += (time_us_32() - start_time) / 1000.0f;
-#endif
     return new_size;
 
 #else
@@ -189,9 +181,6 @@ bool find_and_resolve_stack_overflow(task_t *task) {
 
 void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
-#if defined(PROFILE_SCHEDULER) || defined(PRINT)
-    uint32_t start_time = time_us_32();
-#endif
 
     for (int t = 0; t < MAX_TASKS; t++) {
         task_t *task = &tasks[t];
@@ -250,18 +239,13 @@ void calculate_stack_usage() {
 #ifdef PRINT
     printf("\nCalculating stack size took: %u us\n", time_us_32() - start_time);
 #endif
-#ifdef PROFILE_SCHEDULER
-    profile.time_stack_metrics += (time_us_32() - start_time) / 1000.0f;
-#endif
+
     scheduler_spin_unlock(saved_irq);
 }
 
 __attribute__((noinline))
 void get_next_task() {
     const uint32_t saved_irq = scheduler_spin_lock();
-#if defined(PROFILE_SCHEDULER) || defined(PRINT)
-    uint32_t start_time = time_us_32();
-#endif
 
     scheduler_t *scheduler = get_scheduler();
 
@@ -329,11 +313,7 @@ void get_next_task() {
     printf("Loading task id: %u\n", scheduler->current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
-#ifdef PROFILE_SCHEDULER
-    if (CORE_NUM == 0) {
-        profile.time_scheduling += (time_us_32() - start_time) / 1000.0f;
-    }
-#endif
+
     scheduler_spin_unlock(saved_irq);
 }
 
@@ -392,7 +372,13 @@ void scheduler_raise_pendsv() {
 __attribute__((noinline))
 void isr_systick(void) {
 #ifdef PROFILE_SCHEDULER
-    uint32_t start_time = time_us_32();
+    profile.ran_channel_collection = false;
+    profile.ran_cpu_usage = false;
+    profile.ran_governor = false;
+    profile.ran_stack_resize = false;
+    profile.ran_stack_usage = false;
+
+    profile.start_us = time_us_64();
 #endif
 
 #if CORE_COUNT > 1
@@ -412,42 +398,37 @@ void isr_systick(void) {
 
     if (CORE_NUM == 0) {
         if ((scheduler->ticks_executing % STACK_MONITOR_FREQ) == 0) {
+#ifdef PROFILE_SCHEDULER
+            profile.ran_stack_usage = true;
+#endif
             calculate_stack_usage();
         }
         if ((scheduler->ticks_executing % 100) == 0) {
+#ifdef PROFILE_SCHEDULER
+            profile.ran_channel_collection = true;
+#endif
             channel_garbage_collect();
         }
         if ((scheduler->ticks_executing % 100) == 0) {
+#ifdef PROFILE_SCHEDULER
+            profile.ran_cpu_usage = true;
+#endif
             calculate_cpu_usage();
         }
 #if USE_GOVERNOR == 1
         if ((scheduler->ticks_executing % GOVERNOR_FREQ) == 0) {
+#ifdef PROFILE_SCHEDULER
+            profile.ran_governor = true;
+#endif
             governor_update();
         }
 #endif
     }
 
 #ifdef PROFILE_SCHEDULER
-    profile.time_total += (time_us_32() - start_time) / 1000.0f;
-#endif
+    profile.end_us = time_us_64();
 
-#ifdef PROFILE_SCHEDULER
-    if (((scheduler->ticks_executing % 500) == 0) && (CORE_NUM == 0)) {
-        printf("========= Profile Report =========\n");
-        printf("%f ms total scheduling\n", profile.time_total);
-        printf("%f ms picking next task\n", profile.time_scheduling);
-        printf("%f ms measuring stacks\n", profile.time_stack_metrics);
-        printf("%f ms resizing stacks\n", profile.time_stack_resizing);
-        printf("%f ms measuring CPU usage\n", profile.time_cpu_metrics);
-        printf("==================================\n\n");
-
-        profile.time_total = 0.0;
-        profile.time_scheduling = 0.0;
-        profile.time_stack_metrics = 0.0;
-        profile.time_stack_resizing = 0.0;
-        profile.time_cpu_metrics = 0.0;
-        profile.time_spinlock = 0.0;
-    }
+    printf("\ntime: %llu, su: %u, sr: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us, profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
 #endif
 
     // raise PendSV interrupt (handler in assembly!)
@@ -620,14 +601,6 @@ int32_t kernel_start() {
     gpio_put(STATUS_LED_PIN, true);
 #endif
     spin_locks_init();
-#ifdef PROFILE_SCHEDULER
-    profile.time_total = 0.0;
-    profile.time_scheduling = 0.0;
-    profile.time_stack_metrics = 0.0;
-    profile.time_stack_resizing = 0.0;
-    profile.time_cpu_metrics = 0.0;
-    profile.time_spinlock = 0.0;
-#endif
 #if CORE_COUNT > 1
     multicore_reset_core1();
     multicore_launch_core1(scheduler_start_this_core);

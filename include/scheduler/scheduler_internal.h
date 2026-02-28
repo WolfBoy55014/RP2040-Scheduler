@@ -62,12 +62,13 @@ typedef struct {
 
 #ifdef PROFILE_SCHEDULER
 typedef struct {
-    float time_total;
-    float time_stack_metrics;
-    float time_stack_resizing;
-    float time_cpu_metrics;
-    float time_scheduling;
-    float time_spinlock;
+    uint64_t start_us;
+    uint64_t end_us;
+    bool ran_cpu_usage;
+    bool ran_stack_usage;
+    bool ran_stack_resize;
+    bool ran_channel_collection;
+    bool ran_governor;
 } scheduler_profile_t;
 
 extern scheduler_profile_t profile;
