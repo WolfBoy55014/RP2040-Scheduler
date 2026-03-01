@@ -46,6 +46,7 @@ typedef struct {
     uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint32_t ticks_executing;   // How many ticks this task was seen running
     uint8_t stack_usage;        // Stack utilization (0 - 100)
+    uint32_t stack_hwm;         // Stack highest watermark (index, not address)
 #ifdef OPTIMIZE_STACK_MONITORING
     uint8_t stack_recalculate_cooldown; // loops until next stack usage recalculation
 #endif
@@ -56,7 +57,7 @@ typedef struct {
     uint32_t current_task_index;
     uint32_t started;
     uint32_t ticks_executing;
-    uint64_t ms_since_start;
+    uint64_t ticks_since_start;
     uint32_t ticks_idling;
     uint8_t core_usage;
 } scheduler_t;

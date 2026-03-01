@@ -33,12 +33,12 @@
 #endif
 
 #ifndef CPU_USAGE_FREQ
-#define CPU_USAGE_FREQ 103      // calculate average cpu usage every this many milliseconds
+#define CPU_USAGE_FREQ 103      // calculate average cpu usage every this many ticks
 #endif
 
 #if USE_GOVERNOR == 1
 #ifndef GOVERNOR_FREQ
-#define GOVERNOR_FREQ 503       // run the governor every this many milliseconds
+#define GOVERNOR_FREQ 503       // run the governor every this many ticks
 #endif
 #endif
 
@@ -84,7 +84,7 @@
 #endif
 
 #ifndef STACK_MONITOR_FREQ
-#define STACK_MONITOR_FREQ 7    // perform a stack usage calculation every this many milliseconds
+#define STACK_MONITOR_FREQ 7    // perform a stack usage calculation every this many ticks
                                 // can add large overhead to the scheduler which can be roughly calculated:
                                 // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
                                 // (this could be set very high if you think your tasks won't need more stack)
@@ -102,7 +102,7 @@
 
 #ifdef OPTIMIZE_STACK_MONITORING
 #ifndef OPTIMIZE_STACK_MONITORING_FACTOR
-#define OPTIMIZE_STACK_MONITORING_FACTOR 3  // how many recalculations to delay recalculating a tasks usage
+#define OPTIMIZE_STACK_MONITORING_FACTOR 7  // how many recalculations to delay recalculating a tasks usage
                                             // per STACK_OVERFLOW_THRESHOLDs of free space
                                             // (if you increase STACK_OVERFLOW_THRESHOLD,
                                             // you might want to decrease this)

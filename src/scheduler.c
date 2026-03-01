@@ -201,13 +201,15 @@ void calculate_stack_usage() {
 #endif
 
         uint32_t total_stack = task->stack_size;
-        uint32_t stack_unused = 0;
+        uint32_t starting_index = task->stack_hwm;
+        uint32_t stack_unused = starting_index;
 
-        for (int i = 0; i < total_stack; i++) {
+        for (uint32_t i = starting_index; i < total_stack; i++) {
             // remember, the ARM stack grows downwards!
             if (task->stack[i] == STACK_FILLER) {
                 stack_unused++;
             } else {
+                task->stack_hwm = i - 1;
                 break;  // we started from the side that will be touched last
                         // so if this word was used so will all the rest
             }
@@ -397,26 +399,26 @@ void isr_systick(void) {
     task->ticks_executing++;
 
     if (CORE_NUM == 0) {
-        if ((scheduler->ms_since_start % STACK_MONITOR_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % STACK_MONITOR_FREQ) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_stack_usage = true;
 #endif
             calculate_stack_usage();
         }
-        if ((scheduler->ms_since_start % 101) == 0) {
+        if ((scheduler->ticks_since_start % 101) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_channel_collection = true;
 #endif
             channel_garbage_collect();
         }
-        if ((scheduler->ms_since_start % CPU_USAGE_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % CPU_USAGE_FREQ) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_cpu_usage = true;
 #endif
             calculate_cpu_usage();
         }
 #if USE_GOVERNOR == 1
-        if ((scheduler->ms_since_start % GOVERNOR_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % GOVERNOR_FREQ) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_governor = true;
 #endif
@@ -431,7 +433,7 @@ void isr_systick(void) {
     printf("\ntime: %llu, su: %u, sr: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us, profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
 #endif
 
-    scheduler->ms_since_start += LOOP_TIME;
+    scheduler->ticks_since_start++;
 
     // raise PendSV interrupt (handler in assembly!)
     scheduler_raise_pendsv();
@@ -526,6 +528,7 @@ int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8
     task->stack_size = stack_size; // in 32bit words
     uint32_t *stack_top = task->stack; // lowest value in stack
     task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)
+    task->stack_hwm = 0;
 
     // fill stack with known values for stack monitoring
     for (uint32_t i = 0; i < stack_size; i++) {
@@ -581,7 +584,7 @@ void scheduler_start_this_core() {
     task_add(idle_task, 0 + CORE_NUM, 0);
     scheduler_t* scheduler = get_scheduler();
     scheduler->ticks_executing = 0;
-    scheduler->ms_since_start = 0;
+    scheduler->ticks_since_start = 0;
 
     if (num_tasks == 0) {
         PRINT_WARNING("No tasks to run\n");
