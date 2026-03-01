@@ -58,8 +58,6 @@ void governor_update() {
     }
     core_usage /= CORE_COUNT;
 
-    // printf(">core_usage: %u\r\n", core_usage);
-
     if (core_usage > target_utilization + GOVERNOR_TARGET_TOLERANCE) {
         if (new_freq < 11) {
             new_freq++;
@@ -77,15 +75,13 @@ void governor_update() {
         // increase voltage before increasing frequency
         if (new_freq > current_freq) {
             vreg_set_voltage(target_voltage);
-            busy_wait_us(100);  // Let voltage stabilize
+            busy_wait_us(100); // Let voltage stabilize
         }
 
         if (set_sys_clock_khz(governor_frequencies[new_freq], false)) {
-            vreg_set_voltage(governor_voltages[new_freq]);
-
             // decrease voltage after decreasing frequency
             if (new_freq < current_freq) {
-                busy_wait_us(10);  // Let clock stabilize
+                busy_wait_us(10); // Let clock stabilize
                 vreg_set_voltage(target_voltage);
             }
 
@@ -95,8 +91,6 @@ void governor_update() {
             stdio_init_all();
 
             busy_wait_us(10);
-
-            // printf("Successfully set system clock frequency to %lu\n", governor_frequencies[current_freq]);
         }
     }
 }
