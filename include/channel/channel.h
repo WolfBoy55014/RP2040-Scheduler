@@ -28,7 +28,7 @@ bool is_connected_to_channel(uint16_t channel_id);
  * @param size Length of @code channel_ids@endcode array
  * @return -1 if @code channel_ids@endcode was not long enough, the number of connected channels if positive
  */
-int64_t get_connected_channels(uint16_t* channel_ids, uint16_t size);
+int32_t get_connected_channels(uint16_t* channel_ids, uint16_t size);
 
 /**
  * @brief Request to be connected to the task with pid @code with_pid@endcode.

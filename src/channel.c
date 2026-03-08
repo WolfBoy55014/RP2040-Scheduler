@@ -96,11 +96,11 @@ bool is_connected_to_channel(const uint16_t channel_id) {
     return is_connected;
 }
 
-int64_t get_connected_channels(uint16_t* channel_ids, const uint16_t size) {
+int32_t get_connected_channels(uint16_t* channel_ids, const uint16_t size) {
     const uint32_t saved_irq = save_and_disable_interrupts();
-    uint32_t num_connected = 0;
+    uint16_t num_connected = 0;
 
-    for (uint32_t c = 0; c < NUM_CHANNELS; c++) {
+    for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
         if (is_connected_to_channel(c)) {
             if (num_connected >= size) {
                 restore_interrupts(saved_irq);
@@ -146,6 +146,18 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     if (with == NULL) {
         restore_interrupts(saved_irq);
         return -2;
+    }
+
+    // check if a channel already connects these two channels
+    for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
+        channel = &com_channels[c];
+        if (channel->state == CHANNEL_CONNECTED) {
+            if (channel->owner->id == current_task->id &&
+                channel->partner->id == with_pid) {
+                restore_interrupts(saved_irq);
+                return c; // remind them they already have this one
+            }
+        }
     }
 
     channel_spin_lock_unsafe();
