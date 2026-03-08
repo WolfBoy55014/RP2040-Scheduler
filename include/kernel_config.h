@@ -29,7 +29,7 @@
 #endif
 
 #ifndef USE_GOVERNOR
-#define USE_GOVERNOR 1          // run the cpu frequency governor
+#define USE_GOVERNOR 0          // run the cpu frequency governor
 #endif
 
 #ifndef CPU_USAGE_FREQ

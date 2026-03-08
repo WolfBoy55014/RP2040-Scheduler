@@ -7,8 +7,6 @@
 
 #include "kernel_config.h"
 
-#if USE_GOVERNOR == 1
-
 #include <stdint.h>
 #include "hardware/vreg.h"
 
@@ -51,4 +49,3 @@ void governor_init();
 void governor_update();
 
 #endif
-#endif //KELPOS_LITE_GOVERNOR_H
