@@ -2,13 +2,12 @@
 // Created by wolfboy on 11/27/2025.
 //
 
-#include "../include/lib/com_channel_protocol.h"
+#include "com_channel_protocol.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "scheduler.h"
-#include "kernel/include/channel/channel_internal.h"
+#include "channel_internal.h"
 
 int8_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uint16_t reason) {
 
@@ -632,4 +631,124 @@ int8_t com_get_request(const uint16_t channel_id, uint16_t* request) {
     *request = bytes[1] << 8 | bytes[2];
 
     return 0;
+}
+
+int8_t com_send_uint32_blocking(uint16_t channel_id, uint32_t data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_uint32(channel_id, data, reason);
+}
+
+int8_t com_get_uint32_blocking(uint16_t channel_id, uint32_t* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_uint32(channel_id, data, reason);
+}
+
+int8_t com_send_int32_blocking(uint16_t channel_id, int32_t data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_int32(channel_id, data, reason);
+}
+
+int8_t com_get_int32_blocking(uint16_t channel_id, int32_t* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_int32(channel_id, data, reason);
+}
+
+int8_t com_send_uint64_blocking(uint16_t channel_id, uint64_t data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_uint64(channel_id, data, reason);
+}
+
+int8_t com_get_uint64_blocking(uint16_t channel_id, uint64_t* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_uint64(channel_id, data, reason);
+}
+
+int8_t com_send_int64_blocking(uint16_t channel_id, int64_t data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_int64(channel_id, data, reason);
+}
+
+int8_t com_get_int64_blocking(uint16_t channel_id, int64_t* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_int64(channel_id, data, reason);
+}
+
+int8_t com_send_float_blocking(uint16_t channel_id, float data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_float(channel_id, data, reason);
+}
+
+int8_t com_get_float_blocking(uint16_t channel_id, float* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_float(channel_id, data, reason);
+}
+
+int8_t com_send_double_blocking(uint16_t channel_id, double data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_double(channel_id, data, reason);
+}
+
+int8_t com_get_double_blocking(uint16_t channel_id, double* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_double(channel_id, data, reason);
+}
+
+int8_t com_send_char_blocking(uint16_t channel_id, char data, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_char(channel_id, data, reason);
+}
+
+int8_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_char(channel_id, data, reason);
+}
+
+int8_t com_send_char_array_blocking(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_char_array(channel_id, data, size, reason);
+}
+
+int8_t com_get_char_array_blocking(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_char_array(channel_id, data, max_size, size, reason);
+}
+
+int8_t com_send_char_array_fast_blocking(uint16_t channel_id, const char* data, uint16_t size, uint16_t reason) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_char_array_fast(channel_id, data, size, reason);
+}
+
+int8_t com_get_char_array_fast_blocking(uint16_t channel_id, char (*data)[CHANNEL_SIZE], uint16_t* size, uint16_t* reason) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_char_array_fast(channel_id, data, size, reason);
+}
+
+int8_t com_send_request_blocking(uint16_t channel_id, uint16_t request) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_request(channel_id, request);
+}
+
+int8_t com_get_request_blocking(uint16_t channel_id, uint16_t* request) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_get_request(channel_id, request);
 }

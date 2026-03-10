@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define CHANNEL_BLOCKING_TIMEOUT_MS 1000
+
 /**
  * @brief Check if the current task owns a channel or not
  * @param channel_id ID of the channel
@@ -44,6 +46,19 @@ int32_t get_connected_channels(uint16_t* channel_ids, uint16_t size);
 int32_t com_channel_request(uint32_t with_pid, bool autoFree);
 
 /**
+ * @brief Request to be connected to the task with pid @code with_pid@endcode, blocking until a channel is free
+ * If there is a free communication channel,
+ * a channel will be allocated and connected to the current task and task @code with_pid@endcode.
+ * The current task will become the owner of the channel.
+ * If @code autoFree@endcode is true, the channel will be automatically deallocated after inactivity
+ *
+ * @param with_pid pid of the task the current task will be connected to
+ * @param autoFree either or not the channel should be automatically freed on inactivity
+ * @return -1 if no available channels,\n -2 if no tasks have pid @code with_pid@endcode,\n -3 if the current task has pid @code with_pid@endcode,\n 0+ channel id if successful.
+ */
+int32_t com_channel_request_blocking(uint32_t with_pid, bool autoFree);
+
+/**
  * @brief Disconnect and free a communication channel
  * @param channel_id ID if the channel to free
  * @return -1 if the channel does not exist,\n -2 if the current task is not the owner of the channel,\n -3 if the channel is not allocated.
@@ -67,6 +82,15 @@ bool is_channel_ready_to_write(uint16_t channel_id);
 int32_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
 
 /**
+ * @brief Write a buffer of data to a channel, but will block until data can be written
+ * @param channel_id ID of the channel to write to
+ * @param bytes Array of data to write
+ * @param size The length of @code bytes@endcode
+ * @return -1 if @code bytes@endcode is too long,\n -2 if the current task is not connected to the channel,\n -3 if the channel is already full,\n the number of bytes written if successful
+ */
+int32_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
+
+/**
  * @brief Check if channel has data ready to read
  * @param channel_id ID of channel
  * @return Either or not the channel full of new data
@@ -81,6 +105,15 @@ bool is_channel_ready_to_read(uint16_t channel_id);
  * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
  */
 int64_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t size);
+
+/**
+ * @brief Read the data from a channel and copy it to a provided buffer, but will block until data can be read
+ * @param channel_id ID of the channel to read from
+ * @param buffer Array to copy data to
+ * @param size Size of the provided buffer
+ * @return -1 if @code buffer@endcode is too short to store the data,\n -2 if the current task is not connected to the channel,\n -3 if the channel is empty, \n the amount of data read if successful
+ */
+int64_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t size);
 
 /**
  * @brief Read the data from a channel and copy it to a provided buffer without clearing the channel after
@@ -99,5 +132,9 @@ int64_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t
  *         but it will also return 0 if the first byte is 0.
  */
 uint8_t com_channel_peek(uint16_t channel_id);
+
+void com_channel_wait_until_writable(uint16_t channel_id);
+
+void com_channel_wait_until_readable(uint16_t channel_id);
 
 #endif //CHANNEL_H

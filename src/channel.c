@@ -201,6 +201,19 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     return channel_id;
 }
 
+int32_t com_channel_request_blocking(uint32_t with_pid, bool autoFree) {
+    int32_t error = 0;
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
+        error = com_channel_request(with_pid, autoFree);
+        if (error >= 0) {
+            break;
+        }
+        task_sleep_ms(1);
+    }
+
+    return error;
+}
+
 int32_t com_channel_free(const uint16_t channel_id) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
@@ -318,6 +331,17 @@ int32_t com_channel_write(const uint16_t channel_id, const uint8_t* bytes, const
     return size;
 }
 
+int32_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
+        if (is_channel_ready_to_write(channel_id)) {
+            break;
+        }
+        task_sleep_ms(1);
+    }
+
+    return com_channel_write(channel_id, bytes, size);
+}
+
 bool is_channel_ready_to_read(const uint16_t channel_id) {
     const uint32_t saved_irq = save_and_disable_interrupts();
 
@@ -391,6 +415,17 @@ int64_t com_channel_read(const uint16_t channel_id, uint8_t* buffer, const uint1
 
     channel_spin_unlock(saved_irq);
     return fifo_count;
+}
+
+int64_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t size) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
+        if (is_channel_ready_to_read(channel_id)) {
+            break;
+        }
+        task_sleep_ms(1);
+    }
+
+    return com_channel_read(channel_id, buffer, size);
 }
 
 int64_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t* buffer, const uint16_t size) {
@@ -476,3 +511,24 @@ uint8_t com_channel_peek(const uint16_t channel_id) {
     channel_spin_unlock(saved_irq);
     return byte;
 }
+
+void com_channel_wait_until_writable(uint16_t channel_id) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
+        if (is_channel_ready_to_write(channel_id)) {
+            break;
+        }
+
+        task_sleep_ms(1);
+    }
+}
+
+void com_channel_wait_until_readable(uint16_t channel_id) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
+        if (is_channel_ready_to_read(channel_id)) {
+            break;
+        }
+
+        task_sleep_ms(1);
+    }
+}
+
