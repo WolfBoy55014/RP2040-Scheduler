@@ -474,7 +474,7 @@ void task_return() {
 }
 
 __attribute__((noinline))
-int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8_t priority) {
+int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), const uint32_t id, char* args, const uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -538,15 +538,28 @@ int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8
     // save current stack pointer position
     task->stack_pointer = task->stack_base;
 
+    // insert arguments
+    uint32_t args_size = strlen(args) + 1;
+    uint32_t args_size_uint32 = (args_size + 3) / 4;
+    char* args_in_stack = (char*)(task->stack_base - args_size_uint32);
+
+    args_in_stack[args_size] = '\0';
+    for (uint32_t i = 0; i < args_size; i++) {
+        args_in_stack[i] = args[i];
+    }
+
+    task->stack_pointer -= args_size_uint32 + 1;
+
     // set up initial stack frame for context switching
-    *(task->stack_pointer--) = (uint32_t)0x01000000;  // PSR (Thumb bit set)
-    *(task->stack_pointer--) = (uint32_t)task_function;  // PC (where to start)
-    *(task->stack_pointer--) = (uint32_t)task_return;  // LR (return address)
-    *(task->stack_pointer--) = 12;          // R12
-    *(task->stack_pointer--) = 3;           // R3
-    *(task->stack_pointer--) = 2;           // R2
-    *(task->stack_pointer--) = 1;           // R1
-    *(task->stack_pointer--) = task->id;    // R0 (pass id to task)
+    *(task->stack_pointer--) = (uint32_t)0x01000000;    // PSR (Thumb bit set)
+    *(task->stack_pointer--) = (uint32_t)task_function; // PC (where to start)
+    *(task->stack_pointer--) = (uint32_t)task_return;   // LR (return address)
+    *(task->stack_pointer--) = 12;                      // R12
+    *(task->stack_pointer--) = args_size;               // R3
+    *(task->stack_pointer--) = (uint32_t)args_in_stack; // R2 (pointer to args)
+    task->signals = task->stack_pointer;                // save pointer to this task's signal flags
+    *(task->stack_pointer--) = 0;                       // R1 (pass status to task)
+    *(task->stack_pointer--) = task->id;                // R0 (pass id to task)
 
     // I'm leaving these here as a testimony of frustration
     // These are pushed by C onto the stack upon entering the interrupt handler
@@ -572,8 +585,12 @@ int32_t task_add(void (*task_function)(uint32_t), const uint32_t id, const uint8
     return 0;
 }
 
+int32_t task_add(void (*task_function)(uint32_t, uint32_t, char*), const uint32_t id, const uint8_t priority) {
+    return task_add_args(task_function, id, "\0", priority);
+}
+
 __attribute__((noinline))
-void idle_task(uint32_t pid) {
+void idle_task(uint32_t pid, uint32_t signals, char* args) {
     while (true) {
         __wfi();
     }

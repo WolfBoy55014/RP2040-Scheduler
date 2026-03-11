@@ -37,6 +37,9 @@ typedef struct {
     // --- Task Properties ---
     uint32_t id;                // Task identifier
     uint8_t priority;           // Task priority (higher is more priority)
+    char* arguments;
+    uint32_t arguments_length;
+    uint32_t* signals;
 
     // --- State Properties ---
     task_state_t state;      // State of the task

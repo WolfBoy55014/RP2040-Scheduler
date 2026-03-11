@@ -6,7 +6,8 @@
 
 /* Basic Scheduler Functions */
 int32_t kernel_start();
-int32_t task_add(void (*task_function)(uint32_t), uint32_t id, uint8_t priority);
+int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), uint32_t id, char* args, uint8_t priority);
+int32_t task_add(void (*task_function)(uint32_t, uint32_t, char*), uint32_t id, uint8_t priority);
 
 // task management
 void task_sleep_ms(uint32_t ms);
