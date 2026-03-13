@@ -58,7 +58,7 @@ void calculate_cpu_usage() {
     uint32_t total_ticks_idling = 0;
 
     // calculate core usage
-    for (int s = 0; s < NUM_CORES; s++) {
+    for (uint8_t s = 0; s < CORE_COUNT; s++) {
         scheduler_t *scheduler = &schedulers[s];
 
         uint32_t ticks_executing = scheduler->ticks_executing;
@@ -249,6 +249,10 @@ __attribute__((noinline))
 void get_next_task() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
+#ifdef PRINT
+    uint32_t start_time = time_us_32();
+#endif
+
     scheduler_t *scheduler = get_scheduler();
 
     int16_t highest_priority = -1;
@@ -311,8 +315,8 @@ void get_next_task() {
         }
     }
 #ifdef PRINT
-    printf("Finding next task took: %u us\n", time_us_32() - start_time);
-    printf("Loading task id: %u\n", scheduler->current_task->id);
+    printf("Finding next task took: %lu us\n", time_us_32() - start_time);
+    printf("Loading task id: %lu\n", scheduler->current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
 
@@ -649,6 +653,7 @@ void task_sleep_ms(uint32_t ms) {
 void task_sleep_us(uint64_t us) {
     if (us == 0) {
         task_yield();
+        return;
     }
 
     const uint32_t saved_irq = scheduler_spin_lock();

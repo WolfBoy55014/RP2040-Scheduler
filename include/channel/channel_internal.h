@@ -41,4 +41,10 @@ extern com_channel_t com_channels[NUM_CHANNELS];
  */
 uint8_t channel_garbage_collect();
 
+bool is_owner_of_channel_no_lock(uint16_t channel_id);
+
+bool is_connected_to_channel_no_lock(uint16_t channel_id);
+
+int32_t get_connected_channels_no_lock(uint16_t* channel_ids, const uint16_t size);
+
 #endif //CHANNEL_INTERNAL_H

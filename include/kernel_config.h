@@ -112,7 +112,7 @@
 // --- Channel Configs ---
 
 #ifndef NUM_CHANNELS
-#define NUM_CHANNELS 32         // number of communication channels (must be less that the 16-bit integer limit)
+#define NUM_CHANNELS 16          // number of communication channels (must be less that the 16-bit integer limit)
 #endif
 
 #ifndef CHANNEL_SIZE
