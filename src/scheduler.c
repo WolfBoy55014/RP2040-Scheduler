@@ -245,6 +245,7 @@ void calculate_stack_usage() {
     scheduler_spin_unlock(saved_irq);
 }
 
+// TODO: optimize by making it so it only has to loop through existing tasks, not all possible tasks
 __attribute__((noinline))
 void get_next_task() {
     const uint32_t saved_irq = scheduler_spin_lock();

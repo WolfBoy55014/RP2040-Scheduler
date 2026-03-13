@@ -115,6 +115,7 @@ int32_t get_connected_channels_no_lock(uint16_t* channel_ids, const uint16_t siz
     return num_connected;
 }
 
+// TODO: Optimize with cacheing
 int32_t get_connected_channels(uint16_t* channel_ids, const uint16_t size) {
     const uint32_t saved_irq = channel_spin_lock();
 
