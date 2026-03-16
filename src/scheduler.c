@@ -30,6 +30,8 @@ scheduler_profile_t profile;
 __attribute__((noinline))
 extern void set_spsel(uint32_t control);
 
+extern bool task_exists_no_lock(uint32_t pid);
+
 __attribute__((noinline))
 scheduler_t *get_scheduler() {
     return &schedulers[CORE_NUM];
@@ -479,7 +481,7 @@ void task_return() {
 }
 
 __attribute__((noinline))
-int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), const uint32_t id, char* args, const uint8_t priority) {
+int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args, const uint8_t priority) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -488,7 +490,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), const ui
         return -1; // no more slots empty
     }
 
-    if (task_exists(id)) {
+    if (task_exists_no_lock(id)) {
         PRINT_WARNING("Task id already taken.\n");
         scheduler_spin_unlock(saved_irq);
         return -2; // id taken
@@ -562,8 +564,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), const ui
     *(task->stack_pointer--) = 12;                      // R12
     *(task->stack_pointer--) = args_size;               // R3
     *(task->stack_pointer--) = (uint32_t)args_in_stack; // R2 (pointer to args)
-    task->signals = task->stack_pointer;                // save pointer to this task's signal flags
-    *(task->stack_pointer--) = 0;                       // R1 (pass status to task)
+    *(task->stack_pointer--) = (uint32_t)&task->signals;// R1 (pass signals to task)
     *(task->stack_pointer--) = task->id;                // R0 (pass id to task)
 
     // I'm leaving these here as a testimony of frustration
@@ -590,12 +591,12 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t, char*), const ui
     return 0;
 }
 
-int32_t task_add(void (*task_function)(uint32_t, uint32_t, char*), const uint32_t id, const uint8_t priority) {
+int32_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, const uint8_t priority) {
     return task_add_args(task_function, id, "\0", priority);
 }
 
 __attribute__((noinline))
-void idle_task(uint32_t pid, uint32_t signals, char* args) {
+void idle_task(uint32_t pid, uint32_t* signals, char* args) {
     while (true) {
         __wfi();
     }
@@ -677,13 +678,41 @@ void task_end(int32_t code) {
     task_return();
 }
 
-bool task_exists(uint32_t pid) {
-    for (int i = 0; i < num_tasks; i++) {
+bool task_exists_no_lock(uint32_t pid) {
+    for (uint32_t i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].id == pid && tasks[i].state != TASK_FREE) {
-            return 1; // id exists
+            return true; // id exists
         }
     }
 
-    return 0;
+    return false;
 }
 
+bool task_exists(uint32_t pid) {
+    const uint32_t saved_irq = scheduler_spin_lock();
+
+    bool exists = task_exists_no_lock(pid);
+
+    scheduler_spin_unlock(saved_irq);
+    return exists;
+}
+
+void task_signal(uint32_t pid, uint32_t signals) {
+    task_t *task = NULL;
+
+    const uint32_t saved_irq = scheduler_spin_lock();
+    for (uint32_t i = 0; i < MAX_TASKS; i++) {
+        if (tasks[i].id == pid && tasks[i].state != TASK_FREE) {
+            task = &tasks[i];
+        }
+    }
+
+    if (task == NULL) {
+        scheduler_spin_unlock(saved_irq);
+        return;
+    }
+
+    task->signals |= signals;
+
+    scheduler_spin_unlock(saved_irq);
+}

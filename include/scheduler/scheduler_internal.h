@@ -39,7 +39,7 @@ typedef struct {
     uint8_t priority;           // Task priority (higher is more priority)
     char* arguments;
     uint32_t arguments_length;
-    uint32_t* signals;
+    uint32_t signals;
 
     // --- State Properties ---
     task_state_t state;      // State of the task
@@ -104,5 +104,19 @@ void refresh_systick_all_cores();
  * @return the core usage in whole numbers 0 - 100
  */
 uint8_t get_core_usage(uint8_t core_num);
+
+/**
+ * Override the signals being sent to a task
+ * @param pid the id of the task
+ * @param signals the signals
+ */
+void task_set_signals(uint32_t pid, uint32_t signals);
+
+/**
+ * Get the signals being sent to a task
+ * @param pid the id of the task
+ * @return the contents of the signals on the task
+ */
+uint32_t task_get_signals(uint32_t pid);
 
 #endif //SCHEDULER_INTERNAL_H
