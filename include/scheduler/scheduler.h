@@ -5,12 +5,12 @@
 #include <stdbool.h>
 
 /* Task Signals */
-#define TASK_SIGTERM 1 << 0 // graceful shutdown
-#define TASK_SIGKILL 1 << 1 // force shutdown
-#define TASK_SIGSTOP 1 << 2 // pause execution
-#define TASK_SIGCONT 1 << 3 // continue execution
-#define TASK_SIGEXCP 1 << 4
-#define TASK_SIGWTDG 1 << 5
+#define TASK_SIGTERM (1 << 1) // graceful shutdown
+#define TASK_SIGKILL (1 << 2) // force shutdown
+#define TASK_SIGSTOP (1 << 3) // pause execution
+#define TASK_SIGCONT (1 << 4) // continue execution
+#define TASK_SIGEXCP (1 << 5)
+#define TASK_SIGWTDG (1 << 6)
 
 /* Basic Scheduler Functions */
 int32_t kernel_start();

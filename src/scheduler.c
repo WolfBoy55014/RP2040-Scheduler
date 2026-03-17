@@ -704,6 +704,7 @@ void task_signal(uint32_t pid, uint32_t signals) {
     for (uint32_t i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].id == pid && tasks[i].state != TASK_FREE) {
             task = &tasks[i];
+            break;
         }
     }
 

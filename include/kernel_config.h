@@ -120,7 +120,7 @@
 #endif
 
 #ifndef CHANNEL_AUTO_FREE_DELAY
-#define CHANNEL_AUTO_FREE_DELAY 5000 // how many milliseconds have to pass before a channel will be automatically freed
+#define CHANNEL_AUTO_FREE_DELAY 1000 // how many milliseconds have to pass before a channel will be automatically freed
 #endif
 
 // --- Spinlock Configs ---
