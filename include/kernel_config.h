@@ -33,7 +33,7 @@
 #endif
 
 #ifndef CPU_USAGE_FREQ
-#define CPU_USAGE_FREQ 103      // calculate average cpu usage every this many ticks
+#define CPU_USAGE_PERIOD 103      // calculate average cpu usage every this many ticks
 #endif
 
 #if USE_GOVERNOR == 1
@@ -84,7 +84,7 @@
 #endif
 
 #ifndef STACK_MONITOR_FREQ
-#define STACK_MONITOR_FREQ 7    // perform a stack usage calculation every this many ticks
+#define STACK_MONITOR_PERIOD 7    // perform a stack usage calculation every this many ticks
                                 // can add large overhead to the scheduler which can be roughly calculated:
                                 // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
                                 // (this could be set very high if you think your tasks won't need more stack)
@@ -121,6 +121,10 @@
 
 #ifndef CHANNEL_AUTO_FREE_DELAY
 #define CHANNEL_AUTO_FREE_DELAY 1000 // how many milliseconds have to pass before a channel will be automatically freed
+#endif
+
+#ifndef CHANNEL_GARBAGE_COLLECT_PERIOD
+#define CHANNEL_GARBAGE_COLLECT_PERIOD 101 // the channel garbage collector runs every this many ticks
 #endif
 
 // --- Spinlock Configs ---

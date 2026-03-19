@@ -11,6 +11,8 @@
 #define TASK_SIGCONT (1 << 4) // continue execution
 #define TASK_SIGEXCP (1 << 5)
 #define TASK_SIGWTDG (1 << 6)
+#define TASK_SIGUSR1 (1 << 7)
+#define TASK_SIGUSR2 (1 << 8)
 
 /* Basic Scheduler Functions */
 int32_t kernel_start();

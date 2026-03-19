@@ -18,6 +18,7 @@
 
 typedef enum {
     TASK_FREE,
+    TASK_CLAIMED,
     TASK_RUNNING,
     TASK_READY,
     TASK_SUSPENDED,

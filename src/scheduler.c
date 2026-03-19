@@ -406,19 +406,19 @@ void isr_systick(void) {
     task->ticks_executing++;
 
     if (CORE_NUM == 0) {
-        if ((scheduler->ticks_since_start % STACK_MONITOR_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % STACK_MONITOR_PERIOD) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_stack_usage = true;
 #endif
             calculate_stack_usage();
         }
-        if ((scheduler->ticks_since_start % 101) == 0) {
+        if ((scheduler->ticks_since_start % CHANNEL_GARBAGE_COLLECT_PERIOD) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_channel_collection = true;
 #endif
             channel_garbage_collect();
         }
-        if ((scheduler->ticks_since_start % CPU_USAGE_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % CPU_USAGE_PERIOD) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_cpu_usage = true;
 #endif
@@ -482,6 +482,7 @@ void task_return() {
 
 __attribute__((noinline))
 int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args, const uint8_t priority) {
+    // Acquire lock for initial checks
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -511,13 +512,17 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
         return -1; // mo more room for tasks
     }
 
+    task->state = TASK_CLAIMED;
+
+    // release lock before expensive operations
+    scheduler_spin_unlock(saved_irq);
+
     task->stack_usage = 0;
     task->cpu_usage = 0;
     task->ticks_executing = 0;
 #ifdef OPTIMIZE_STACK_MONITORING
     task->stack_recalculate_cooldown = 0;
 #endif
-
     task->id = id;
     task->priority = priority;
 
@@ -533,8 +538,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     }
 
     task->stack_size = stack_size; // in 32bit words
-    uint32_t *stack_top = task->stack; // lowest value in stack
-    task->stack_base = stack_top + task->stack_size - 1; // highest value in stack (where the sp starts)
+    task->stack_base = task->stack + task->stack_size - 1; // highest value in stack (where the sp starts)
     task->stack_hwm = 0;
 
     // fill stack with known values for stack monitoring
@@ -587,7 +591,6 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     task->state = TASK_READY;
 
     num_tasks++;
-    scheduler_spin_unlock(saved_irq);
     return 0;
 }
 
