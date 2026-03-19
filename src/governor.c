@@ -50,7 +50,6 @@ void governor_init() {
 }
 
 void governor_update() {
-#if USE_GOVERNOR == 1
     uint32_t new_freq = current_freq;
 
     uint8_t core_usage = 0;
@@ -94,5 +93,4 @@ void governor_update() {
             busy_wait_us(10);
         }
     }
-#endif
 }

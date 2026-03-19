@@ -33,7 +33,7 @@
 #endif
 
 #ifndef CPU_USAGE_FREQ
-#define CPU_USAGE_PERIOD 103      // calculate average cpu usage every this many ticks
+#define CPU_USAGE_PERIOD 1009   // calculate average cpu usage every this many ticks
 #endif
 
 #if USE_GOVERNOR == 1
