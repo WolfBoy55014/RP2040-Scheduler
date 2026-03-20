@@ -74,6 +74,7 @@ typedef struct {
     bool ran_stack_usage;
     bool ran_stack_resize;
     bool ran_channel_collection;
+    bool ran_schedular_collection;
     bool ran_governor;
 } scheduler_profile_t;
 

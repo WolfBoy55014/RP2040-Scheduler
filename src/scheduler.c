@@ -247,6 +247,25 @@ void calculate_stack_usage() {
     scheduler_spin_unlock(saved_irq);
 }
 
+void scheduler_garbage_collect() {
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
+        task_t *task = &tasks[t];
+
+        // if this task is free, skip
+        if (task->state == TASK_FREE) {
+            continue;
+        }
+
+        // if task is dead, remove it
+        if (task->state == TASK_DEAD) {
+            free(task->stack);
+            task->state = TASK_FREE;
+            num_tasks--;
+            continue;
+        }
+    }
+}
+
 // TODO: optimize by making it so it only has to loop through existing tasks, not all possible tasks
 __attribute__((noinline))
 void get_next_task() {
@@ -280,14 +299,6 @@ void get_next_task() {
         }
 
         task_t *potential_task = &tasks[potential_index];
-
-        // if task is dead, remove it
-        if (potential_task->state == TASK_DEAD) {
-            free(potential_task->stack);
-            potential_task->state = TASK_FREE;
-            num_tasks--;
-            continue;
-        }
 
         // if this task is free, skip
         if (potential_task->state == TASK_FREE) {
@@ -382,6 +393,7 @@ __attribute__((noinline))
 void isr_systick(void) {
 #ifdef PROFILE_SCHEDULER
     profile.ran_channel_collection = false;
+    profile.ran_schedular_collection = false;
     profile.ran_cpu_usage = false;
     profile.ran_governor = false;
     profile.ran_stack_resize = false;
@@ -424,8 +436,14 @@ void isr_systick(void) {
 #endif
             calculate_cpu_usage();
         }
+        if ((scheduler->ticks_since_start % SCHEDULER_GARBAGE_COLLECT_PERIOD) == 0) {
+#ifdef PROFILE_SCHEDULER
+            profile.ran_schedular_collection = true;
+#endif
+            scheduler_garbage_collect();
+        }
 #if USE_GOVERNOR == 1
-        if ((scheduler->ticks_since_start % GOVERNOR_FREQ) == 0) {
+        if ((scheduler->ticks_since_start % GOVERNOR_PERIOD) == 0) {
 #ifdef PROFILE_SCHEDULER
             profile.ran_governor = true;
 #endif
@@ -437,7 +455,7 @@ void isr_systick(void) {
 #ifdef PROFILE_SCHEDULER
     profile.end_us = time_us_64();
 
-    printf("\ntime: %llu, su: %u, sr: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us, profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
+    printf("\ntime: %llu, su: %u, sr: %u, sc: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us, profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_schedular_collection, profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
 #endif
 
     scheduler->ticks_since_start++;

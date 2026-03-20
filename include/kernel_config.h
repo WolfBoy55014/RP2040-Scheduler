@@ -32,14 +32,18 @@
 #define USE_GOVERNOR 0          // run the cpu frequency governor
 #endif
 
-#ifndef CPU_USAGE_FREQ
+#ifndef CPU_USAGE_PERIOD
 #define CPU_USAGE_PERIOD 1009   // calculate average cpu usage every this many ticks
 #endif
 
 #if USE_GOVERNOR == 1
-#ifndef GOVERNOR_FREQ
-#define GOVERNOR_FREQ 503       // run the governor every this many ticks
+#ifndef GOVERNOR_PERIOD
+#define GOVERNOR_PERIOD 503       // run the governor every this many ticks
 #endif
+#endif
+
+#ifndef SCHEDULER_GARBAGE_COLLECT_PERIOD
+#define SCHEDULER_GARBAGE_COLLECT_PERIOD 101   // run the scheduler garbage collector ever this many ticks
 #endif
 
 
@@ -83,7 +87,7 @@
                                     // or are experiencing random crashes)
 #endif
 
-#ifndef STACK_MONITOR_FREQ
+#ifndef STACK_MONITOR_PERIOD
 #define STACK_MONITOR_PERIOD 7    // perform a stack usage calculation every this many ticks
                                 // can add large overhead to the scheduler which can be roughly calculated:
                                 // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
@@ -124,7 +128,7 @@
 #endif
 
 #ifndef CHANNEL_GARBAGE_COLLECT_PERIOD
-#define CHANNEL_GARBAGE_COLLECT_PERIOD 101 // the channel garbage collector runs every this many ticks
+#define CHANNEL_GARBAGE_COLLECT_PERIOD 103 // the channel garbage collector runs every this many ticks
 #endif
 
 // --- Spinlock Configs ---
