@@ -22,7 +22,7 @@
 scheduler_t schedulers[CORE_COUNT];
 uint32_t num_tasks;
 task_t tasks[MAX_TASKS];
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
 scheduler_profile_t profile;
 #endif
 
@@ -33,13 +33,13 @@ extern void set_spsel(uint32_t control);
 extern bool task_exists_no_lock(uint32_t pid);
 
 __attribute__((noinline))
-scheduler_t *get_scheduler() {
+scheduler_t* get_scheduler() {
     return &schedulers[CORE_NUM];
 }
 
 __attribute__((noinline))
-task_t *get_current_task() {
-    scheduler_t *scheduler = get_scheduler();
+task_t* get_current_task() {
+    scheduler_t* scheduler = get_scheduler();
     return scheduler->current_task;
 }
 
@@ -61,7 +61,7 @@ void calculate_cpu_usage() {
 
     // calculate core usage
     for (uint8_t s = 0; s < CORE_COUNT; s++) {
-        scheduler_t *scheduler = &schedulers[s];
+        scheduler_t* scheduler = &schedulers[s];
 
         uint32_t ticks_executing = scheduler->ticks_executing;
         uint32_t ticks_idling = scheduler->ticks_idling;
@@ -71,7 +71,8 @@ void calculate_cpu_usage() {
 
         if (ticks_executing <= 0) {
             scheduler->core_usage = 0;
-        } else {
+        }
+        else {
             scheduler->core_usage = ((ticks_executing - ticks_idling) * 100) / ticks_executing;
         }
 
@@ -81,7 +82,7 @@ void calculate_cpu_usage() {
 
     // calculate task cpu usage
     for (int t = 0; t < MAX_TASKS; t++) {
-        task_t *task = &tasks[t];
+        task_t* task = &tasks[t];
 
         if (task->state == TASK_FREE) {
             continue;
@@ -101,7 +102,7 @@ uint8_t get_core_usage(const uint8_t core_num) {
 
     uint32_t saved_irq = scheduler_spin_lock();
 
-    scheduler_t *scheduler = &schedulers[core_num];
+    scheduler_t* scheduler = &schedulers[core_num];
     const uint8_t usage = scheduler->core_usage;
 
     scheduler_spin_unlock(saved_irq);
@@ -109,11 +110,11 @@ uint8_t get_core_usage(const uint8_t core_num) {
     return usage;
 }
 
-uint32_t resize_stack(task_t *task, uint32_t new_size) {
-#ifdef PROFILE_SCHEDULER
+uint32_t resize_stack(task_t* task, uint32_t new_size) {
+#if PROFILE_SCHEDULER
     profile.ran_stack_resize = true;
 #endif
-#ifdef DYNAMIC_STACK
+#if DYNAMIC_STACK
 
     if (new_size > MAX_STACK_SIZE) {
         new_size = MAX_STACK_SIZE;
@@ -126,11 +127,11 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
     uint32_t stack_pointer_offset = task->stack_base - task->stack_pointer;
     uint32_t old_size = task->stack_size;
 
-    uint32_t *reallocated_stack = NULL;
+    uint32_t* reallocated_stack = NULL;
     reallocated_stack = realloc(task->stack, new_size * sizeof(uint32_t));
 
     if (reallocated_stack == NULL) {
-        return old_size;                // if its null, that means there was no more room
+        return old_size; // if its null, that means there was no more room
     }
 
     task->stack = reallocated_stack;
@@ -150,7 +151,7 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
     task->stack_base = task->stack + task->stack_size - 1;
     task->stack_pointer = task->stack_base - stack_pointer_offset;
 
-#ifdef PRINT
+#if PRINT
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
 #endif
     return new_size;
@@ -160,11 +161,11 @@ uint32_t resize_stack(task_t *task, uint32_t new_size) {
 #endif
 }
 
-bool find_and_resolve_stack_overflow(task_t *task) {
-    uint32_t *check_point = task->stack + STACK_OVERFLOW_THRESHOLD - 1;
+bool find_and_resolve_stack_overflow(task_t* task) {
+    uint32_t* check_point = task->stack + STACK_OVERFLOW_THRESHOLD - 1;
 
     if (*check_point != STACK_FILLER) {
-#ifdef DYNAMIC_STACK
+#if DYNAMIC_STACK
         if (task->stack_size < MAX_STACK_SIZE) {
             uint32_t old_size = task->stack_size;
             uint32_t new_size = resize_stack(task, task->stack_size + STACK_STEP_SIZE);
@@ -185,13 +186,13 @@ void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     for (uint32_t t = 0; t < MAX_TASKS; t++) {
-        task_t *task = &tasks[t];
+        task_t* task = &tasks[t];
 
         if (task->state == TASK_FREE || task->state == TASK_RUNNING) {
             continue;
         }
 
-#ifdef OPTIMIZE_STACK_MONITORING
+#if OPTIMIZE_STACK_MONITORING
         if (task->state == TASK_SUSPENDED) {
             continue;
         }
@@ -203,15 +204,22 @@ void calculate_stack_usage() {
 #endif
 
         uint32_t total_stack = task->stack_size;
+#if OPTIMIZE_STACK_MONITORING
         uint32_t starting_index = task->stack_hwm;
+#else
+        uint32_t starting_index = 0;
+#endif
         uint32_t stack_unused = starting_index;
 
         for (uint32_t i = starting_index; i < total_stack; i++) {
             // remember, the ARM stack grows downwards!
             if (task->stack[i] == STACK_FILLER) {
                 stack_unused++;
-            } else {
+            }
+            else {
+#if OPTIMIZE_STACK_MONITORING
                 task->stack_hwm = i - 1;
+#endif
                 break;  // we started from the side that will be touched last
                         // so if this word was used so will all the rest
             }
@@ -221,7 +229,7 @@ void calculate_stack_usage() {
 
         task->stack_usage = (stack_used * 100) / total_stack;
 
-#ifdef OPTIMIZE_STACK_MONITORING
+#if OPTIMIZE_STACK_MONITORING
         task->stack_recalculate_cooldown = OPTIMIZE_STACK_MONITORING_FACTOR * (stack_unused / STACK_OVERFLOW_THRESHOLD);
         if (task->state == TASK_WAIT_US) {
             task->stack_recalculate_cooldown++;
@@ -229,10 +237,11 @@ void calculate_stack_usage() {
 #endif
 
         if (stack_unused < STACK_OVERFLOW_THRESHOLD) {
-#ifdef DYNAMIC_STACK
+#if DYNAMIC_STACK
             if (task->stack_size < MAX_STACK_SIZE) {
                 resize_stack(task, task->stack_size + STACK_STEP_SIZE);
-            } else {
+            }
+            else {
                 task->state = TASK_SUSPENDED;
             }
 #else
@@ -240,7 +249,7 @@ void calculate_stack_usage() {
 #endif
         }
     }
-#ifdef PRINT
+#if PRINT
     printf("\nCalculating stack size took: %u us\n", time_us_32() - start_time);
 #endif
 
@@ -249,7 +258,7 @@ void calculate_stack_usage() {
 
 void scheduler_garbage_collect() {
     for (uint32_t t = 0; t < MAX_TASKS; t++) {
-        task_t *task = &tasks[t];
+        task_t* task = &tasks[t];
 
         // if this task is free, skip
         if (task->state == TASK_FREE) {
@@ -271,17 +280,17 @@ __attribute__((noinline))
 void get_next_task() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
-#ifdef PRINT
+#if PRINT
     uint32_t start_time = time_us_32();
 #endif
 
-    scheduler_t *scheduler = get_scheduler();
+    scheduler_t* scheduler = get_scheduler();
 
     int16_t highest_priority = -1;
 
     if (scheduler->current_task->state == TASK_RUNNING) {
-        scheduler->current_task->state = TASK_READY;    // tell scheduler that the old task is not running anymore
-                                                        // when we move to dual-core, this will be useful
+        scheduler->current_task->state = TASK_READY; // tell scheduler that the old task is not running anymore
+        // when we move to dual-core, this will be useful
     }
 
     if (scheduler->current_task->state == TASK_ZOMBIE) {
@@ -298,7 +307,7 @@ void get_next_task() {
             potential_index = 0;
         }
 
-        task_t *potential_task = &tasks[potential_index];
+        task_t* potential_task = &tasks[potential_index];
 
         // if this task is free, skip
         if (potential_task->state == TASK_FREE) {
@@ -328,7 +337,7 @@ void get_next_task() {
             potential_task->state = TASK_READY;
         }
     }
-#ifdef PRINT
+#if PRINT
     printf("Finding next task took: %lu us\n", time_us_32() - start_time);
     printf("Loading task id: %lu\n", scheduler->current_task->id);
 #endif
@@ -339,7 +348,7 @@ void get_next_task() {
 
 __attribute__((noinline))
 void isr_hardfault(void) {
-#ifdef STATUS_LED
+#if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
     gpio_put(STATUS_LED_PIN, false);
@@ -386,12 +395,12 @@ void check_multicore_signals() {
 #endif
 
 void scheduler_raise_pendsv() {
-    *(volatile uint32_t *)(0xe0000000|M0PLUS_ICSR_OFFSET) = (1L<<28);
+    *(volatile uint32_t*)(0xe0000000 | M0PLUS_ICSR_OFFSET) = (1L << 28);
 }
 
 __attribute__((noinline))
 void isr_systick(void) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
     profile.ran_channel_collection = false;
     profile.ran_schedular_collection = false;
     profile.ran_cpu_usage = false;
@@ -407,9 +416,9 @@ void isr_systick(void) {
     check_multicore_signals();
 #endif
 
-    scheduler_t *scheduler = get_scheduler();
+    scheduler_t* scheduler = get_scheduler();
     scheduler->ticks_executing++;
-    task_t *task = get_current_task();
+    task_t* task = get_current_task();
 
     if (task->id < CORE_COUNT) {
         scheduler->ticks_idling++;
@@ -419,32 +428,32 @@ void isr_systick(void) {
 
     if (CORE_NUM == 0) {
         if ((scheduler->ticks_since_start % STACK_MONITOR_PERIOD) == 0) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
             profile.ran_stack_usage = true;
 #endif
             calculate_stack_usage();
         }
         if ((scheduler->ticks_since_start % CHANNEL_GARBAGE_COLLECT_PERIOD) == 0) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
             profile.ran_channel_collection = true;
 #endif
             channel_garbage_collect();
         }
         if ((scheduler->ticks_since_start % CPU_USAGE_PERIOD) == 0) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
             profile.ran_cpu_usage = true;
 #endif
             calculate_cpu_usage();
         }
         if ((scheduler->ticks_since_start % SCHEDULER_GARBAGE_COLLECT_PERIOD) == 0) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
             profile.ran_schedular_collection = true;
 #endif
             scheduler_garbage_collect();
         }
-#if USE_GOVERNOR == 1
+#if USE_GOVERNOR
         if ((scheduler->ticks_since_start % GOVERNOR_PERIOD) == 0) {
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
             profile.ran_governor = true;
 #endif
             governor_update();
@@ -452,10 +461,12 @@ void isr_systick(void) {
 #endif
     }
 
-#ifdef PROFILE_SCHEDULER
+#if PROFILE_SCHEDULER
     profile.end_us = time_us_64();
 
-    printf("\ntime: %llu, su: %u, sr: %u, sc: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us, profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_schedular_collection, profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
+    printf("\ntime: %llu, su: %u, sr: %u, sc: %u, cc: %u, cu: %u, cg: %u\n", profile.end_us - profile.start_us,
+           profile.ran_stack_usage, profile.ran_stack_resize, profile.ran_schedular_collection,
+           profile.ran_channel_collection, profile.ran_cpu_usage, profile.ran_governor);
 #endif
 
     scheduler->ticks_since_start++;
@@ -466,25 +477,26 @@ void isr_systick(void) {
 
 void start_systick() {
     const uint32_t clock_hz = clock_get_hz(clk_sys);
-    const uint32_t ticks = (clock_hz * LOOP_TIME) / 1000;     // loop time in ms
+    const uint32_t ticks = (clock_hz * LOOP_TIME) / 1000; // loop time in ms
 
     // configure SysTick
-    systick_hw->rvr = ticks - 1;                        // set ticks until fire
-    systick_hw->cvr = 0;                                // clear current value
-    systick_hw->csr = M0PLUS_SYST_CSR_CLKSOURCE_BITS |  // use system clock
-                      M0PLUS_SYST_CSR_TICKINT_BITS |    // enable interrupt
-                      M0PLUS_SYST_CSR_ENABLE_BITS;      // enable SysTick
+    systick_hw->rvr = ticks - 1; // set ticks until fire
+    systick_hw->cvr = 0; // clear current value
+    systick_hw->csr = M0PLUS_SYST_CSR_CLKSOURCE_BITS | // use system clock
+        M0PLUS_SYST_CSR_TICKINT_BITS | // enable interrupt
+        M0PLUS_SYST_CSR_ENABLE_BITS; // enable SysTick
 }
 
 __attribute__((noinline))
-void remove_task(task_t *task) {
+void remove_task(task_t* task) {
     const uint32_t saved_irq = scheduler_spin_lock();
 
     // we make it a zombie until it stops running to prevent from freeing
     // the stack from another core while it is still running
     if (task->state == TASK_RUNNING) {
         task->state = TASK_ZOMBIE;
-    } else {
+    }
+    else {
         task->state = TASK_DEAD;
         num_tasks--;
     }
@@ -499,7 +511,8 @@ void task_return() {
 }
 
 __attribute__((noinline))
-int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args, const uint8_t priority) {
+int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args,
+                      const uint8_t priority) {
     // Acquire lock for initial checks
     const uint32_t saved_irq = scheduler_spin_lock();
 
@@ -515,7 +528,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
         return -2; // id taken
     }
 
-    task_t *task = NULL;
+    task_t* task = NULL;
 
     // find available task slot
     for (int t = 0; t < MAX_TASKS; t++) {
@@ -538,13 +551,13 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     task->stack_usage = 0;
     task->cpu_usage = 0;
     task->ticks_executing = 0;
-#ifdef OPTIMIZE_STACK_MONITORING
+#if OPTIMIZE_STACK_MONITORING
     task->stack_recalculate_cooldown = 0;
 #endif
     task->id = id;
     task->priority = priority;
 
-#ifdef DYNAMIC_STACK
+#if DYNAMIC_STACK
     const uint32_t stack_size = STARTING_STACK_SIZE;
 #else
     const uint32_t stack_size = STACK_SIZE;
@@ -557,7 +570,9 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
 
     task->stack_size = stack_size; // in 32bit words
     task->stack_base = task->stack + task->stack_size - 1; // highest value in stack (where the sp starts)
+#if OPTIMIZE_STACK_MONITORING
     task->stack_hwm = 0;
+#endif
 
     // fill stack with known values for stack monitoring
     for (uint32_t i = 0; i < stack_size; i++) {
@@ -580,14 +595,14 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     task->stack_pointer -= args_size_uint32 + 1;
 
     // set up initial stack frame for context switching
-    *(task->stack_pointer--) = (uint32_t)0x01000000;    // PSR (Thumb bit set)
+    *(task->stack_pointer--) = (uint32_t)0x01000000; // PSR (Thumb bit set)
     *(task->stack_pointer--) = (uint32_t)task_function; // PC (where to start)
-    *(task->stack_pointer--) = (uint32_t)task_return;   // LR (return address)
-    *(task->stack_pointer--) = 12;                      // R12
-    *(task->stack_pointer--) = args_size;               // R3
+    *(task->stack_pointer--) = (uint32_t)task_return; // LR (return address)
+    *(task->stack_pointer--) = 12; // R12
+    *(task->stack_pointer--) = args_size; // R3
     *(task->stack_pointer--) = (uint32_t)args_in_stack; // R2 (pointer to args)
-    *(task->stack_pointer--) = (uint32_t)&task->signals;// R1 (pass signals to task)
-    *(task->stack_pointer--) = task->id;                // R0 (pass id to task)
+    *(task->stack_pointer--) = (uint32_t)&task->signals; // R1 (pass signals to task)
+    *(task->stack_pointer--) = task->id; // R0 (pass id to task)
 
     // I'm leaving these here as a testimony of frustration
     // These are pushed by C onto the stack upon entering the interrupt handler
@@ -597,14 +612,14 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     // *(task.stack_pointer--) = (uint32_t)task_function; // LR (C decided to push these! :( )
     // *(task.stack_pointer--) = 0;           // R4
 
-    *(task->stack_pointer--) = 7;           // R7
-    *(task->stack_pointer--) = 6;           // R6
-    *(task->stack_pointer--) = 5;           // R5
-    *(task->stack_pointer--) = 4;           // R4
-    *(task->stack_pointer--) = 11;          // R11
-    *(task->stack_pointer--) = 10;          // R10
-    *(task->stack_pointer--) = 9;           // R9
-    *(task->stack_pointer) = 8;             // R8
+    *(task->stack_pointer--) = 7; // R7
+    *(task->stack_pointer--) = 6; // R6
+    *(task->stack_pointer--) = 5; // R5
+    *(task->stack_pointer--) = 4; // R4
+    *(task->stack_pointer--) = 11; // R11
+    *(task->stack_pointer--) = 10; // R10
+    *(task->stack_pointer--) = 9; // R9
+    *(task->stack_pointer) = 8; // R8
 
     task->state = TASK_READY;
 
@@ -624,7 +639,6 @@ void idle_task(uint32_t pid, uint32_t* signals, char* args) {
 }
 
 void scheduler_start_this_core() {
-
     task_add(idle_task, 0 + CORE_NUM, 0);
     scheduler_t* scheduler = get_scheduler();
     scheduler->ticks_executing = 0;
@@ -647,7 +661,7 @@ void scheduler_start_this_core() {
 }
 
 int32_t kernel_start() {
-#ifdef STATUS_LED
+#if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
     gpio_put(STATUS_LED_PIN, true);
@@ -680,7 +694,7 @@ void task_sleep_us(uint64_t us) {
     }
 
     const uint32_t saved_irq = scheduler_spin_lock();
-    task_t *current_task = get_current_task();
+    task_t* current_task = get_current_task();
     current_task->state = TASK_WAIT_US;
     current_task->resume_us = make_timeout_time_us(us);
     scheduler_spin_unlock(saved_irq);
@@ -689,7 +703,7 @@ void task_sleep_us(uint64_t us) {
 
 void task_yield() {
     const uint32_t saved_irq = scheduler_spin_lock();
-    task_t *current_task = get_current_task();
+    task_t* current_task = get_current_task();
     current_task->state = TASK_YIELDING;
     scheduler_spin_unlock(saved_irq);
     scheduler_raise_pendsv();
@@ -719,7 +733,7 @@ bool task_exists(uint32_t pid) {
 }
 
 void task_signal(uint32_t pid, uint32_t signals) {
-    task_t *task = NULL;
+    task_t* task = NULL;
 
     const uint32_t saved_irq = scheduler_spin_lock();
     for (uint32_t i = 0; i < MAX_TASKS; i++) {

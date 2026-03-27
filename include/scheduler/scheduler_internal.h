@@ -50,8 +50,8 @@ typedef struct {
     uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint32_t ticks_executing;   // How many ticks this task was seen running
     uint8_t stack_usage;        // Stack utilization (0 - 100)
+#if OPTIMIZE_STACK_MONITORING
     uint32_t stack_hwm;         // Stack highest watermark (index, not address)
-#ifdef OPTIMIZE_STACK_MONITORING
     uint8_t stack_recalculate_cooldown; // loops until next stack usage recalculation
 #endif
 } task_t;

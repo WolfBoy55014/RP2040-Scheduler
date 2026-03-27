@@ -32,6 +32,10 @@
 #define USE_GOVERNOR 1          // run the cpu frequency governor
 #endif
 
+#ifndef GOVERNOR_LIMIT_SAFE
+#define GOVERNOR_LIMIT_SAFE 1   // limit the governor in how much it will overclock
+#endif
+
 #ifndef CPU_USAGE_PERIOD
 #define CPU_USAGE_PERIOD 127    // calculate average cpu usage every this many ticks
 #endif
@@ -52,9 +56,11 @@
 // all stack sizes are measured in 32 bit *words*
 // so a stack is 4 times larger in *bytes*
 
-#define DYNAMIC_STACK           // perform dynamic re-allocation of stacks as they grow
+#ifndef DYNAMIC_STACK
+#define DYNAMIC_STACK 1         // perform dynamic re-allocation of stacks as they grow
+#endif
 
-#ifdef DYNAMIC_STACK
+#if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
 #define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
 #endif
@@ -100,11 +106,11 @@
 #define STACK_FILLER 0x1ABE11ED // what the stack is filled with to measure stack usage
 #endif
 
-#define OPTIMIZE_STACK_MONITORING   // apply optimizations to stack monitoring
+#define OPTIMIZE_STACK_MONITORING 1 // apply optimizations to stack monitoring
                                     // such as reducing the amount of calculations spent
                                     // on tasks with low stack usage
 
-#ifdef OPTIMIZE_STACK_MONITORING
+#if OPTIMIZE_STACK_MONITORING
 #ifndef OPTIMIZE_STACK_MONITORING_FACTOR
 #define OPTIMIZE_STACK_MONITORING_FACTOR 7  // how many recalculations to delay recalculating a tasks usage
                                             // per STACK_OVERFLOW_THRESHOLDs of free space
@@ -145,9 +151,11 @@
 
 // --- Debug ---
 
-// #define PRINT                // either or not to print debug messages
+#ifndef PRINT
+#define PRINT 0              // either or not to print debug messages
+#endif
 
-#ifdef PRINT
+#if PRINT
 #define PRINT_WARNING(msg) printf(msg)
 #define PRINT_DEBUG(msg) printf(msg)
 #else
@@ -155,11 +163,15 @@
 #define PRINT_DEBUG(msg)
 #endif
 
-// #define PROFILE_SCHEDULER
+#ifndef PROFILE_SCHEDULER
+#define PROFILE_SCHEDULER 0
+#endif
 
-#define STATUS_LED
+#ifndef STATUS_LED
+#define STATUS_LED 1
+#endif
 
-#ifdef STATUS_LED
+#if STATUS_LED
 #ifndef STATUS_LED_PIN
 #define STATUS_LED_PIN 25
 #endif
