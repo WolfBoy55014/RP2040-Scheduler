@@ -53,13 +53,13 @@ void governor_update() {
     uint32_t new_freq = current_freq;
 
     uint8_t core_usage = 0;
-    for (int c = 0; c < CORE_COUNT; c++) {
+    for (uint8_t c = 0; c < CORE_COUNT; c++) {
         core_usage += get_core_usage(c);
     }
     core_usage /= CORE_COUNT;
 
     if (core_usage > target_utilization + GOVERNOR_TARGET_TOLERANCE) {
-        if (new_freq < 11) {
+        if (new_freq < GOVERNOR_MAX_FREQ) {
             new_freq++;
         }
     }
@@ -71,26 +71,30 @@ void governor_update() {
 
     if (new_freq != current_freq) {
         enum vreg_voltage target_voltage = governor_voltages[new_freq];
+        enum vreg_voltage current_voltage = governor_voltages[current_freq];
 
         // increase voltage before increasing frequency
         if (new_freq > current_freq) {
             vreg_set_voltage(target_voltage);
-            busy_wait_us(100); // Let voltage stabilize
+            busy_wait_us(100); // let voltage stabilize
         }
 
-        if (set_sys_clock_khz(governor_frequencies[new_freq], false)) {
-            // decrease voltage after decreasing frequency
-            if (new_freq < current_freq) {
-                busy_wait_us(10); // Let clock stabilize
-                vreg_set_voltage(target_voltage);
-            }
-
-            current_freq = new_freq;
-
-            refresh_systick_all_cores();
-            stdio_init_all();
-
-            busy_wait_us(10);
+        if (!set_sys_clock_khz(governor_frequencies[new_freq], false)) {
+            // failed to change clock speed
+            // reset voltage
+            vreg_set_voltage(current_voltage);
+            busy_wait_us(10); // let voltage stabilize
+            return;
         }
+
+        // decrease voltage after decreasing frequency
+        if (new_freq < current_freq) {
+            busy_wait_us(10); // let clock stabilize
+            vreg_set_voltage(target_voltage);
+        }
+
+        current_freq = new_freq;
+
+        refresh_systick_all_cores();
     }
 }

@@ -29,16 +29,16 @@
 #endif
 
 #ifndef USE_GOVERNOR
-#define USE_GOVERNOR 0          // run the cpu frequency governor
+#define USE_GOVERNOR 1          // run the cpu frequency governor
 #endif
 
 #ifndef CPU_USAGE_PERIOD
-#define CPU_USAGE_PERIOD 1009   // calculate average cpu usage every this many ticks
+#define CPU_USAGE_PERIOD 127    // calculate average cpu usage every this many ticks
 #endif
 
-#if USE_GOVERNOR == 1
+#if USE_GOVERNOR
 #ifndef GOVERNOR_PERIOD
-#define GOVERNOR_PERIOD 503       // run the governor every this many ticks
+#define GOVERNOR_PERIOD 251      // run the governor every this many ticks
 #endif
 #endif
 
@@ -56,7 +56,7 @@
 
 #ifdef DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 256 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE

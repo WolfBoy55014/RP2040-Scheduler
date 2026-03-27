@@ -184,7 +184,7 @@ bool find_and_resolve_stack_overflow(task_t *task) {
 void calculate_stack_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
-    for (int t = 0; t < MAX_TASKS; t++) {
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
         task_t *task = &tasks[t];
 
         if (task->state == TASK_FREE || task->state == TASK_RUNNING) {
