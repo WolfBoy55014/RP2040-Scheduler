@@ -17,6 +17,8 @@
 #include "governor.h"
 #include "spinlock_internal.h"
 #include "kernel_config.h"
+#include "memory_allocation.h"
+#include "memory_protection.h"
 
 /* Scheduler Variables */
 scheduler_t schedulers[CORE_COUNT];
@@ -127,8 +129,7 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
     uint32_t stack_pointer_offset = task->stack_base - task->stack_pointer;
     uint32_t old_size = task->stack_size;
 
-    uint32_t* reallocated_stack = NULL;
-    reallocated_stack = realloc(task->stack, new_size * sizeof(uint32_t));
+    uint32_t* reallocated_stack = (uint32_t*)stack_realloc(task->stack, new_size * sizeof(uint32_t));
 
     if (reallocated_stack == NULL) {
         return old_size; // if its null, that means there was no more room
@@ -161,21 +162,11 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
 #endif
 }
 
-bool find_and_resolve_stack_overflow(task_t* task) {
-    uint32_t* check_point = task->stack + STACK_OVERFLOW_THRESHOLD - 1;
+bool find_and_flag_stack_overflow(task_t* task) {
+    uint32_t* check_point = task->stack + STACK_OVERFLOW_THRESHOLD;
 
     if (*check_point != STACK_FILLER) {
-#if DYNAMIC_STACK
-        if (task->stack_size < MAX_STACK_SIZE) {
-            uint32_t old_size = task->stack_size;
-            uint32_t new_size = resize_stack(task, task->stack_size + STACK_STEP_SIZE);
-            if (new_size > old_size) {
-                return true;
-            }
-        }
-#endif
-
-        task->state = TASK_SUSPENDED;
+        task->state = TASK_STACK_OVERFLOWED;
         return false;
     }
 
@@ -236,18 +227,7 @@ void calculate_stack_usage() {
         }
 #endif
 
-        if (stack_unused < STACK_OVERFLOW_THRESHOLD) {
-#if DYNAMIC_STACK
-            if (task->stack_size < MAX_STACK_SIZE) {
-                resize_stack(task, task->stack_size + STACK_STEP_SIZE);
-            }
-            else {
-                task->state = TASK_SUSPENDED;
-            }
-#else
-            task->state = TASK_SUSPENDED;
-#endif
-        }
+
     }
 #if PRINT
     printf("\nCalculating stack size took: %u us\n", time_us_32() - start_time);
@@ -257,6 +237,7 @@ void calculate_stack_usage() {
 }
 
 void scheduler_garbage_collect() {
+    const uint32_t saved_irq = scheduler_spin_lock();
     for (uint32_t t = 0; t < MAX_TASKS; t++) {
         task_t* task = &tasks[t];
 
@@ -267,12 +248,23 @@ void scheduler_garbage_collect() {
 
         // if task is dead, remove it
         if (task->state == TASK_DEAD) {
-            free(task->stack);
+            stack_free(task->stack);
             task->state = TASK_FREE;
             num_tasks--;
             continue;
         }
+
+        // resize the stacks of tasks that need more
+        if (task->state == TASK_STACK_OVERFLOWED) {
+            task->state = TASK_SUSPENDED; // suspend if it can't be saved
+            uint32_t old_size = task->stack_size;
+            uint32_t new_size = resize_stack(task, task->stack_size + STACK_STEP_SIZE);
+            if (new_size > old_size) {
+                task->state = TASK_READY; // nvm, we're good!
+            }
+        }
     }
+    scheduler_spin_unlock(saved_irq);
 }
 
 // TODO: optimize by making it so it only has to loop through existing tasks, not all possible tasks
@@ -323,11 +315,12 @@ void get_next_task() {
 
         // if this task has the highest priority found so far, select it
         if ((potential_task->state == TASK_READY) && (potential_task->priority > highest_priority)) {
-            if (find_and_resolve_stack_overflow(potential_task)) {
-                highest_priority = potential_task->priority;
-                scheduler->current_task_index = potential_index;
-                scheduler->current_task = potential_task;
+            if (!find_and_flag_stack_overflow(potential_task)) {
+                continue;
             }
+            highest_priority = potential_task->priority;
+            scheduler->current_task_index = potential_index;
+            scheduler->current_task = potential_task;
         }
 
         // if this task was yielding, reset it to ready
@@ -343,11 +336,44 @@ void get_next_task() {
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
 
+#if USE_HARDWARE_STACK_GUARDS
+    mpu_place_stack_guard(scheduler->current_task);
+#endif
+
     scheduler_spin_unlock(saved_irq);
 }
 
 __attribute__((noinline))
 void isr_hardfault(void) {
+    volatile uint32_t mmfsr = *(volatile uint32_t*)0xE000ED28;
+    volatile uint32_t mmfar = *(volatile uint32_t*)0xE000ED34;
+    volatile uint32_t hfsr  = *(volatile uint32_t*)0xE000ED2C;
+
+    uint32_t psp;
+    asm volatile ("mrs %0, psp" : "=r" (psp));
+    uint32_t* frame = (uint32_t*)psp;
+
+    // store to globals so debugger can read them
+    volatile static uint32_t fault_hfsr, fault_mmfsr, fault_mmfar;
+    volatile static uint32_t fault_pc, fault_lr, fault_psr;
+    fault_hfsr  = hfsr;
+    fault_mmfsr = mmfsr;
+    fault_mmfar = mmfar;
+    fault_pc    = frame[6];
+    fault_lr    = frame[5];
+    fault_psr   = frame[7];
+
+#if USE_HARDWARE_STACK_GUARDS
+    task_t* task = get_current_task();
+    if (mpu_task_overflowed(task)) {
+        uint32_t psp;
+        asm volatile ("mrs %0, psp" : "=r" (psp));
+        task->stack_pointer = (uint32_t*)psp;
+        task->state = TASK_STACK_OVERFLOWED;
+        scheduler_raise_pendsv();
+        return;
+    }
+#endif
 #if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
@@ -513,7 +539,7 @@ void task_return() {
 __attribute__((noinline))
 int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args,
                       const uint8_t priority) {
-    // Acquire lock for initial checks
+    // acquire lock for initial checks
     const uint32_t saved_irq = scheduler_spin_lock();
 
     if (num_tasks >= MAX_TASKS) {
@@ -562,7 +588,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
 #else
     const uint32_t stack_size = STACK_SIZE;
 #endif
-    task->stack = (uint32_t*)malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
+    task->stack = (uint32_t*)stack_alloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
 
     if (task->stack == NULL) {
         return -1;
@@ -639,6 +665,11 @@ void idle_task(uint32_t pid, uint32_t* signals, char* args) {
 }
 
 void scheduler_start_this_core() {
+
+#if USE_MPU
+    mpu_init();  // ← init MPU once, here, before anything runs
+#endif
+
     task_add(idle_task, 0 + CORE_NUM, 0);
     scheduler_t* scheduler = get_scheduler();
     scheduler->ticks_executing = 0;
@@ -658,6 +689,8 @@ void scheduler_start_this_core() {
     start_systick();
 
     PRINT_DEBUG("Timer Started!\n");
+
+    set_spsel(2);
 }
 
 int32_t kernel_start() {
@@ -672,7 +705,6 @@ int32_t kernel_start() {
     multicore_launch_core1(scheduler_start_this_core);
 #endif
     scheduler_start_this_core();
-    set_spsel(2);
     return 0;
 }
 

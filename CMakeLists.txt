@@ -51,6 +51,8 @@ target_sources(rp2040_kernel INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/spinlock.c
     ${CMAKE_CURRENT_LIST_DIR}/src/com_channel_protocol.c
     ${CMAKE_CURRENT_LIST_DIR}/src/governor.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/memory_protection.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/memory_allocation.c
 )
 
 target_include_directories(rp2040_kernel INTERFACE
@@ -59,6 +61,7 @@ target_include_directories(rp2040_kernel INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/include/channel/
     ${CMAKE_CURRENT_LIST_DIR}/include/spinlock/
     ${CMAKE_CURRENT_LIST_DIR}/include/lib/
+    ${CMAKE_CURRENT_LIST_DIR}/include/memory/
 )
 
 target_link_libraries(rp2040_kernel INTERFACE

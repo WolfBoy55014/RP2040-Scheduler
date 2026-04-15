@@ -15,7 +15,7 @@
 // --- Scheduler Configs ---
 
 #ifndef CORE_COUNT
-#define CORE_COUNT 2            // number of cores the kernel will use
+#define CORE_COUNT 1            // number of cores the kernel will use
 #endif
 
 #ifndef MAX_TASKS
@@ -47,7 +47,7 @@
 #endif
 
 #ifndef SCHEDULER_GARBAGE_COLLECT_PERIOD
-#define SCHEDULER_GARBAGE_COLLECT_PERIOD 101   // run the scheduler garbage collector ever this many ticks
+#define SCHEDULER_GARBAGE_COLLECT_PERIOD 7     // run the scheduler garbage collector every this many ticks
 #endif
 
 
@@ -62,7 +62,7 @@
 
 #if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 128 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE
@@ -70,11 +70,11 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE 16384    // the maximum amount of stack the scheduler will give a task before suspending it
+#define MAX_STACK_SIZE 8192     // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
 #ifndef STACK_STEP_SIZE
-#define STACK_STEP_SIZE 128     // the amount of stack the scheduler will give and take from a task at a time
+#define STACK_STEP_SIZE 32      // the amount of stack the scheduler will give and take from a task at a time
                                 // (preferably fits nicely into MAX_STACK_SIZE - MIN_STACK_SIZE)
                                 // (you might want to try increasing this if you expect rapid stack usage
                                 // or are experiencing random crashes)
@@ -87,14 +87,15 @@
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
-#define STACK_OVERFLOW_THRESHOLD 64 // a task will be suspended or have its stack resized
+#define STACK_OVERFLOW_THRESHOLD 32 // a task will be suspended or have its stack resized
                                     // when it has less than this many words left free in its stack
                                     // (you might want to try increasing this if you expect rapid stack usage
                                     // or are experiencing random crashes)
+                                    // not used if using hardware stack protection
 #endif
 
 #ifndef STACK_MONITOR_PERIOD
-#define STACK_MONITOR_PERIOD 7    // perform a stack usage calculation every this many ticks
+#define STACK_MONITOR_PERIOD 101// perform a stack usage calculation every this many ticks
                                 // can add large overhead to the scheduler which can be roughly calculated:
                                 // MAX_TASKS * STACK_SIZE * 0.0079 ms (or about 2 ms per task)
                                 // (this could be set very high if you think your tasks won't need more stack)
@@ -116,6 +117,26 @@
                                             // per STACK_OVERFLOW_THRESHOLDs of free space
                                             // (if you increase STACK_OVERFLOW_THRESHOLD,
                                             // you might want to decrease this)
+#endif
+#endif
+
+#ifndef ALIGN_STACK_ALLOCATIONS
+#define ALIGN_STACK_ALLOCATIONS 1
+#endif
+
+#ifndef STACK_ALIGNMENT_SIZE
+#define STACK_ALIGNMENT_SIZE 256
+#endif
+
+#ifndef USE_HARDWARE_STACK_GUARDS
+#define USE_HARDWARE_STACK_GUARDS 1
+#endif
+
+#define USE_MPU (PICO_RP2040 && USE_HARDWARE_STACK_GUARDS)
+
+#if PICO_RP2040 && USE_HARDWARE_STACK_GUARDS
+#if !ALIGN_STACK_ALLOCATIONS | (STACK_ALIGNMENT_SIZE != 256)
+#error The stacks must be aligned to 256 byte boundaries for mpu stack protection on the RP2040!
 #endif
 #endif
 
