@@ -62,7 +62,7 @@
 
 #if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 256 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE

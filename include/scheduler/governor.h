@@ -12,7 +12,7 @@
 
 #define GOVERNOR_FREQUENCIES    {64000,             72000,             80000,             96000,             110000,            125000,            133000,            150000,            180000,            200000,            240000,            280000}
 #define GOVERNOR_VOLTAGES       {VREG_VOLTAGE_0_90, VREG_VOLTAGE_0_90, VREG_VOLTAGE_0_95, VREG_VOLTAGE_0_95, VREG_VOLTAGE_1_10, VREG_VOLTAGE_1_10, VREG_VOLTAGE_1_10, VREG_VOLTAGE_1_15, VREG_VOLTAGE_1_15, VREG_VOLTAGE_1_20, VREG_VOLTAGE_1_25, VREG_VOLTAGE_1_30}
-#define GOVERNOR_DEFAULT_FREQ   5       // should be the index of the frequency the cpu
+#define GOVERNOR_DEFAULT_FREQ   4       // should be the index of the frequency the cpu
                                         // normally runs at
 
 #if GOVERNOR_LIMIT_SAFE
