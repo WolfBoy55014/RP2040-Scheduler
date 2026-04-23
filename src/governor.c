@@ -10,6 +10,7 @@
 #include "scheduler_internal.h"
 #include "hardware/clocks.h"
 #include "hardware/timer.h"
+#include "hardware/uart.h"
 #include "pico/stdio.h"
 
 const uint32_t governor_frequencies[] = GOVERNOR_FREQUENCIES;
@@ -47,6 +48,35 @@ void governor_init() {
     current_power_mode = GOVERNOR_BALANCED;
     target_utilization = GOVERNOR_TARGET_BALANCED;
     current_freq = GOVERNOR_DEFAULT_FREQ;
+
+    uint32_t peri_clock_freq = clock_get_hz(clk_peri);
+
+    if (set_sys_clock_khz(governor_frequencies[current_freq], false)) {
+        busy_wait_us(100);
+
+        // When `set_sys_clock_khz` is run, it will move peripherals to the USB clock.
+        // This is *very* good, but we need to re-calculate clock dividers
+        // for peripherals
+
+        // recalculate uart baud
+        if (uart_is_enabled(uart0)) {
+            uint32_t baud_ibrd = uart_get_hw(uart0)->ibrd;
+            uint32_t baud_fbrd = uart_get_hw(uart0)->fbrd;
+            // See datasheet
+            uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
+            uart_tx_wait_blocking(uart0);
+            uart_set_baudrate(uart0, baud);
+        }
+
+        if (uart_is_enabled(uart1)) {
+            uint32_t baud_ibrd = uart_get_hw(uart1)->ibrd;
+            uint32_t baud_fbrd = uart_get_hw(uart1)->fbrd;
+            // See datasheet
+            uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
+            uart_tx_wait_blocking(uart1);
+            uart_set_baudrate(uart1, baud);
+        }
+    }
 }
 
 void governor_update() {

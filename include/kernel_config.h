@@ -62,7 +62,7 @@
 
 #if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 128 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 64 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE
@@ -70,7 +70,7 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE 8192     // the maximum amount of stack the scheduler will give a task before suspending it
+#define MAX_STACK_SIZE 16384    // the maximum amount of stack the scheduler will give a task before suspending it
 #endif
 
 #ifndef STACK_STEP_SIZE
@@ -91,7 +91,6 @@
                                     // when it has less than this many words left free in its stack
                                     // (you might want to try increasing this if you expect rapid stack usage
                                     // or are experiencing random crashes)
-                                    // not used if using hardware stack protection
 #endif
 
 #ifndef STACK_MONITOR_PERIOD
