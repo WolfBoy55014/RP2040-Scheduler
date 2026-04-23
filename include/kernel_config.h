@@ -167,6 +167,10 @@
 #define PROFILE_SCHEDULER 0
 #endif
 
+#ifndef DUMP_STACKS
+#define DUMP_STACKS 1
+#endif
+
 #ifndef STATUS_LED
 #define STATUS_LED 1
 #endif

@@ -110,9 +110,25 @@ uint8_t get_core_usage(const uint8_t core_num) {
     return usage;
 }
 
+void heap_dump() {
+    printf("\nStack Dump: (Time: %llu ", time_us_64() / 1000LLU);
+    // go through all tasks and dump their stack locations and sizes as well as some other memory data
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
+        task_t* task = &tasks[t];
+        if (task->state == TASK_FREE) {
+            continue;
+        }
+        printf("(Task: %lu, Top: %p, Base: %p, SP: %p)", task->id, task->stack, task->stack_base, task->stack_pointer);
+    }
+    printf(")\n");
+}
+
 uint32_t resize_stack(task_t* task, uint32_t new_size) {
 #if PROFILE_SCHEDULER
     profile.ran_stack_resize = true;
+#endif
+#if DUMP_STACKS
+    heap_dump();
 #endif
 #if DYNAMIC_STACK
 
@@ -153,6 +169,9 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
 
 #if PRINT
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
+#endif
+#if DUMP_STACKS
+    heap_dump();
 #endif
     return new_size;
 
@@ -348,6 +367,9 @@ void get_next_task() {
 
 __attribute__((noinline))
 void isr_hardfault(void) {
+#if DUMP_STACKS
+    heap_dump();
+#endif
 #if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
