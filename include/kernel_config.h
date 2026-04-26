@@ -87,7 +87,7 @@
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
-#define STACK_OVERFLOW_THRESHOLD 32 // a task will be suspended or have its stack resized
+#define STACK_OVERFLOW_THRESHOLD 20 // a task will be suspended or have its stack resized
                                     // when it has less than this many words left free in its stack
                                     // (you might want to try increasing this if you expect rapid stack usage
                                     // or are experiencing random crashes)
@@ -185,6 +185,10 @@
 
 #ifndef PROFILE_SCHEDULER
 #define PROFILE_SCHEDULER 0
+#endif
+
+#ifndef DUMP_STACKS
+#define DUMP_STACKS 1
 #endif
 
 #ifndef STATUS_LED

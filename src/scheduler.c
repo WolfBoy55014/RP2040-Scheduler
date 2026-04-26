@@ -112,9 +112,29 @@ uint8_t get_core_usage(const uint8_t core_num) {
     return usage;
 }
 
+void heap_dump() {
+    printf("\nStack Dump: (Time: %llu ", time_us_64() / 1000LLU);
+    // go through all tasks and dump their stack locations and sizes as well as some other memory data
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
+        task_t* task = &tasks[t];
+        if (task->state == TASK_FREE) {
+            continue;
+        }
+        printf("(Task: %lu, Top: %p, Base: %p, SP: %p)", task->id, task->stack, task->stack_base, task->stack_pointer);
+    }
+#if USE_HARDWARE_STACK_GUARDS
+    scheduler_t* scheduler = get_scheduler();
+    printf("(Task: %lu, Top: %X, Base: %X, SP: %X)", UINT32_MAX, scheduler->mpu_region_addr, scheduler->mpu_region_addr + scheduler->mpu_region_size, scheduler->mpu_region_addr);
+#endif
+    printf(")\n");
+}
+
 uint32_t resize_stack(task_t* task, uint32_t new_size) {
 #if PROFILE_SCHEDULER
     profile.ran_stack_resize = true;
+#endif
+#if DUMP_STACKS
+    heap_dump();
 #endif
 #if DYNAMIC_STACK
 
@@ -154,6 +174,9 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
 
 #if PRINT
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
+#endif
+#if DUMP_STACKS
+    heap_dump();
 #endif
     return new_size;
 
@@ -345,30 +368,14 @@ void get_next_task() {
 
 __attribute__((noinline))
 void isr_hardfault(void) {
-    volatile uint32_t mmfsr = *(volatile uint32_t*)0xE000ED28;
-    volatile uint32_t mmfar = *(volatile uint32_t*)0xE000ED34;
-    volatile uint32_t hfsr  = *(volatile uint32_t*)0xE000ED2C;
-
-    uint32_t psp;
-    asm volatile ("mrs %0, psp" : "=r" (psp));
-    uint32_t* frame = (uint32_t*)psp;
-
-    // store to globals so debugger can read them
-    volatile static uint32_t fault_hfsr, fault_mmfsr, fault_mmfar;
-    volatile static uint32_t fault_pc, fault_lr, fault_psr;
-    fault_hfsr  = hfsr;
-    fault_mmfsr = mmfsr;
-    fault_mmfar = mmfar;
-    fault_pc    = frame[6];
-    fault_lr    = frame[5];
-    fault_psr   = frame[7];
-
+#if DUMP_STACKS
+    heap_dump();
+#endif
 #if USE_HARDWARE_STACK_GUARDS
     task_t* task = get_current_task();
-    if (mpu_task_overflowed(task)) {
-        uint32_t psp;
-        asm volatile ("mrs %0, psp" : "=r" (psp));
-        task->stack_pointer = (uint32_t*)psp;
+    uint32_t psp;
+    asm volatile ("mrs %0, psp" : "=r" (psp));
+    if (mpu_task_overflowed(task, psp)) {
         task->state = TASK_STACK_OVERFLOWED;
         scheduler_raise_pendsv();
         return;
@@ -665,11 +672,6 @@ void idle_task(uint32_t pid, uint32_t* signals, char* args) {
 }
 
 void scheduler_start_this_core() {
-
-#if USE_MPU
-    mpu_init();  // ← init MPU once, here, before anything runs
-#endif
-
     task_add(idle_task, 0 + CORE_NUM, 0);
     scheduler_t* scheduler = get_scheduler();
     scheduler->ticks_executing = 0;
@@ -694,6 +696,9 @@ void scheduler_start_this_core() {
 }
 
 int32_t kernel_start() {
+#if USE_MPU
+    mpu_init();  // init mpu once before anything runs
+#endif
 #if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);

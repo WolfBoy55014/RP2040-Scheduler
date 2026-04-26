@@ -65,6 +65,10 @@ typedef struct {
     uint64_t ticks_since_start;
     uint32_t ticks_idling;
     uint8_t core_usage;
+#if USE_HARDWARE_STACK_GUARDS
+    uint32_t mpu_region_addr;
+    uint32_t mpu_region_size;
+#endif
 } scheduler_t;
 
 #ifdef PROFILE_SCHEDULER

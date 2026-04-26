@@ -16,13 +16,13 @@
 #define MPU_RBAR *(volatile uintptr_t*)(M0PLUS_MPU_BASE_ADDR + M0PLUS_MPU_RBAR_OFFSET)
 #define MPU_RASR *(volatile uintptr_t*)(M0PLUS_MPU_BASE_ADDR + M0PLUS_MPU_RASR_OFFSET)
 
-#define MPU_BLANKET_ACCESS_REGION_ID 0
-#define MPU_FLASH_CODE_EXECUTION_REGION_ID   1
-#define MPU_RAM_REGION_ID    2
-#define MPU_STACK_GUARD_REGION_ID  3
+#define MPU_DEFAULT_DEVICE_REGION_ID 0
+#define MPU_DEFAULT_NORMAL_REGION_ID 1
+#define MPU_STACK_GUARD_REGION_ID 3
 
 #define bytes_to_rasr_size(size) (uint32_t)(log((double)size) / log(2.0) - 0.01)
 #endif
+#include "hardware/sync.h"
 
 inline bool mpu_supported() {
 #if PICO_RP2040
@@ -37,16 +37,12 @@ uint8_t mpu_num_regions();
 
 void mpu_init();
 
-inline void mpu_enable() {
-    MPU_CTRL |= M0PLUS_MPU_CTRL_ENABLE_BITS;
-}
+void mpu_enable();
 
-inline void mpu_disable() {
-    MPU_CTRL &= ~M0PLUS_MPU_CTRL_ENABLE_BITS;
-}
+void mpu_disable();
 
 void mpu_place_stack_guard(task_t* task);
 
-bool mpu_task_overflowed(task_t* task);
+bool mpu_task_overflowed(task_t* task, uint32_t psp);
 
 #endif //KELPOS_LITE_MEMORY_PROTECTION_H
