@@ -168,7 +168,7 @@
 #endif
 
 #ifndef DUMP_STACKS
-#define DUMP_STACKS 1
+#define DUMP_STACKS 0
 #endif
 
 #ifndef STATUS_LED
