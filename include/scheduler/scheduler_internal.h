@@ -22,6 +22,7 @@ typedef enum {
     TASK_RUNNING,
     TASK_READY,
     TASK_SUSPENDED,
+    TASK_STACK_OVERFLOWED,
     TASK_WAIT_US,
     TASK_YIELDING,
     TASK_ZOMBIE,
@@ -38,21 +39,20 @@ typedef struct {
     // --- Task Properties ---
     uint32_t id;                // Task identifier
     uint8_t priority;           // Task priority (higher is more priority)
-    char* arguments;
-    uint32_t arguments_length;
     uint32_t signals;
+    uint32_t requested_stack_size;
 
     // --- State Properties ---
-    task_state_t state;      // State of the task
+    task_state_t state;         // State of the task
     absolute_time_t resume_us;  // When the task will be done sleeping (in absolute time)
 
     // --- System Usage Properties ---
-    uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint32_t ticks_executing;   // How many ticks this task was seen running
+    uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint8_t stack_usage;        // Stack utilization (0 - 100)
 #if OPTIMIZE_STACK_MONITORING
-    uint32_t stack_hwm;         // Stack highest watermark (index, not address)
     uint8_t stack_recalculate_cooldown; // loops until next stack usage recalculation
+    uint32_t stack_hwm;         // Stack highest watermark (index, not address)
 #endif
 } task_t;
 

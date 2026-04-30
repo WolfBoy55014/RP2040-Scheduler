@@ -38,6 +38,14 @@ void task_sleep_us(uint64_t us);
  */
 void task_yield();
 
+/**
+ * Request the kernel to resize the stack of the current task
+ * Both shrinking and growing is possible
+ * @param stack_size the stack size wanted
+ * @return true if the requested size was allocated
+ */
+bool task_request_stack(uint32_t stack_size);
+
 void task_end(int32_t code);
 
 /**

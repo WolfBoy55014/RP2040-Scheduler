@@ -144,16 +144,17 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
     uint32_t old_size = task->stack_size;
 
     uint32_t* reallocated_stack = NULL;
-    reallocated_stack = realloc(task->stack, new_size * sizeof(uint32_t));
-
-    if (reallocated_stack == NULL) {
-        return old_size; // if its null, that means there was no more room
-    }
-
-    task->stack = reallocated_stack;
-    task->stack_size = new_size;
 
     if (new_size > old_size) {
+        reallocated_stack = realloc(task->stack, new_size * sizeof(uint32_t));
+
+        if (reallocated_stack == NULL) {
+            return old_size; // if its null, that means there was no more room
+        }
+
+        task->stack = reallocated_stack;
+        task->stack_size = new_size;
+
         const uint32_t additional_space = new_size - old_size;
 
         memmove(&task->stack[additional_space], &task->stack[0], old_size * sizeof(uint32_t));
@@ -162,10 +163,27 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
         for (uint32_t i = 0; i < additional_space; i++) {
             task->stack[i] = STACK_FILLER;
         }
+    } else if (new_size < old_size) {
+        reallocated_stack = malloc(new_size * sizeof(uint32_t));
+
+        if (reallocated_stack == NULL) {
+            return old_size; // if its null, that means there was no more room
+        }
+
+        const uint32_t reduction = old_size - new_size;
+        
+        memmove(reallocated_stack, &task->stack[reduction], new_size * sizeof(uint32_t));
+
+        free(task->stack);
+        task->stack = reallocated_stack;
+        task->stack_size = new_size;
     }
 
     task->stack_base = task->stack + task->stack_size - 1;
     task->stack_pointer = task->stack_base - stack_pointer_offset;
+#if OPTIMIZE_STACK_MONITORING
+    task->stack_hwm = 0;
+#endif
 
 #if PRINT
     printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
@@ -180,21 +198,15 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
 #endif
 }
 
-bool find_and_resolve_stack_overflow(task_t* task) {
+bool find_and_flag_stack_overflow(task_t* task) {
     uint32_t* check_point = task->stack + STACK_OVERFLOW_THRESHOLD - 1;
 
     if (*check_point != STACK_FILLER) {
 #if DYNAMIC_STACK
-        if (task->stack_size < MAX_STACK_SIZE) {
-            uint32_t old_size = task->stack_size;
-            uint32_t new_size = resize_stack(task, task->stack_size + STACK_STEP_SIZE);
-            if (new_size > old_size) {
-                return true;
-            }
-        }
-#endif
-
+        task->state = TASK_STACK_OVERFLOWED;
+#else
         task->state = TASK_SUSPENDED;
+#endif
         return false;
     }
 
@@ -291,6 +303,31 @@ void scheduler_garbage_collect() {
             num_tasks--;
             continue;
         }
+
+        // if the stack wants more memory, allocate more
+        if (task->state == TASK_STACK_OVERFLOWED) {
+#if DYNAMIC_STACK
+            if (task->stack_size < MAX_STACK_SIZE) {
+                uint32_t desired_size = task->stack_size + STACK_STEP_SIZE;
+                // if the task has specified an amount:
+                if (task->requested_stack_size != 0) {
+                    desired_size = task->requested_stack_size;
+                    task->requested_stack_size = 0;
+                }
+                uint32_t old_size = task->stack_size;
+                uint32_t new_size = resize_stack(task, desired_size);
+                if (new_size == desired_size) {
+                    task->state = TASK_READY;
+                } else {
+                    task->state = TASK_SUSPENDED;
+                }
+            } else {
+                task->state = TASK_SUSPENDED;
+            }
+#else
+            task->state = TASK_SUSPENDED;
+#endif
+        }
     }
 }
 
@@ -328,8 +365,11 @@ void get_next_task() {
 
         task_t* potential_task = &tasks[potential_index];
 
-        // if this task is free, skip
-        if (potential_task->state == TASK_FREE) {
+        // if this task is not usable, skip
+        if (potential_task->state == TASK_FREE ||
+            potential_task->state == TASK_DEAD ||
+            potential_task->state == TASK_STACK_OVERFLOWED ||
+            potential_task->state == TASK_SUSPENDED) {
             continue;
         }
 
@@ -342,7 +382,7 @@ void get_next_task() {
 
         // if this task has the highest priority found so far, select it
         if ((potential_task->state == TASK_READY) && (potential_task->priority > highest_priority)) {
-            if (find_and_resolve_stack_overflow(potential_task)) {
+            if (find_and_flag_stack_overflow(potential_task)) {
                 highest_priority = potential_task->priority;
                 scheduler->current_task_index = potential_index;
                 scheduler->current_task = potential_task;
@@ -729,6 +769,21 @@ void task_yield() {
     current_task->state = TASK_YIELDING;
     scheduler_spin_unlock(saved_irq);
     scheduler_raise_pendsv();
+}
+
+bool task_request_stack(uint32_t stack_size) {
+    const uint32_t saved_irq = scheduler_spin_lock();
+    task_t* current_task = get_current_task();
+    current_task->state = TASK_STACK_OVERFLOWED;
+    current_task->requested_stack_size = stack_size;
+    scheduler_spin_unlock(saved_irq);
+    scheduler_raise_pendsv();
+
+    if (current_task->stack_size == stack_size) {
+        return true;
+    }
+
+    return false;
 }
 
 void task_end(int32_t code) {

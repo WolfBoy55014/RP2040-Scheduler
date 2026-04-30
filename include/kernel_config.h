@@ -62,7 +62,7 @@
 
 #if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 256 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE
@@ -87,7 +87,7 @@
 #endif
 
 #ifndef STACK_OVERFLOW_THRESHOLD
-#define STACK_OVERFLOW_THRESHOLD 64 // a task will be suspended or have its stack resized
+#define STACK_OVERFLOW_THRESHOLD 32 // a task will be suspended or have its stack resized
                                     // when it has less than this many words left free in its stack
                                     // (you might want to try increasing this if you expect rapid stack usage
                                     // or are experiencing random crashes)
