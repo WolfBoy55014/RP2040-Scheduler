@@ -5,6 +5,7 @@
 #ifndef SCHEDULER_INTERNAL_H
 #define SCHEDULER_INTERNAL_H
 
+#include "error_codes.h"
 #include "pico/types.h"
 #include "kernel_config.h"
 

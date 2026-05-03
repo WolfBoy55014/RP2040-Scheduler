@@ -45,6 +45,6 @@ bool is_owner_of_channel_no_lock(uint16_t channel_id);
 
 bool is_connected_to_channel_no_lock(uint16_t channel_id);
 
-int32_t get_connected_channels_no_lock(uint16_t* channel_ids, const uint16_t size);
+kelp_error_t get_connected_channels_no_lock(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size);
 
 #endif //CHANNEL_INTERNAL_H

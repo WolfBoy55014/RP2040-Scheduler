@@ -8,11 +8,12 @@
 
 #include "scheduler.h"
 #include "channel_internal.h"
+#include  "error_codes.h"
 
-int8_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uint16_t reason) {
+kelp_error_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[7];
@@ -25,26 +26,31 @@ int8_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uin
     bytes[5] = data >> 8;
     bytes[6] = data;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 7);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    return error;
 }
 
-int8_t com_get_uint32(const uint16_t channel_id, uint32_t* data, uint16_t* reason) {
+kelp_error_t com_get_uint32(const uint16_t channel_id, uint32_t* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[7];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 7);
-    if (error < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_UINT32) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 7) {
+        return KELP_PROTOCOL;
     }
 
     uint32_t data_uint32 = bytes[3] << 24 | bytes[4] << 16 | bytes[5] << 8 | bytes[6];
@@ -52,13 +58,13 @@ int8_t com_get_uint32(const uint16_t channel_id, uint32_t* data, uint16_t* reaso
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_int32(const uint16_t channel_id, const int32_t data, const uint16_t reason) {
+kelp_error_t com_send_int32(const uint16_t channel_id, const int32_t data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[7];
@@ -71,26 +77,31 @@ int8_t com_send_int32(const uint16_t channel_id, const int32_t data, const uint1
     bytes[5] = data >> 8;
     bytes[6] = data;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 7);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    return error;
 }
 
-int8_t com_get_int32(const uint16_t channel_id, int32_t* data, uint16_t* reason) {
+kelp_error_t com_get_int32(const uint16_t channel_id, int32_t* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[7];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 7);
-    if (error < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_INT32) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 7) {
+        return KELP_PROTOCOL;
     }
 
     int32_t data_int32 = bytes[3] << 24 | bytes[4] << 16 | bytes[5] << 8 | bytes[6];
@@ -98,13 +109,13 @@ int8_t com_get_int32(const uint16_t channel_id, int32_t* data, uint16_t* reason)
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_uint64(const uint16_t channel_id, const uint64_t data, const uint16_t reason) {
+kelp_error_t com_send_uint64(const uint16_t channel_id, const uint64_t data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[11];
@@ -121,26 +132,31 @@ int8_t com_send_uint64(const uint16_t channel_id, const uint64_t data, const uin
     bytes[9] = data >> 8;
     bytes[10] = data;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 11);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    return error;
 }
 
-int8_t com_get_uint64(const uint16_t channel_id, uint64_t* data, uint16_t* reason) {
+kelp_error_t com_get_uint64(const uint16_t channel_id, uint64_t* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[11];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 11);
-    if (error < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_UINT64) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 11) {
+        return KELP_PROTOCOL;
     }
 
     uint64_t data_uint64 =
@@ -157,13 +173,13 @@ int8_t com_get_uint64(const uint16_t channel_id, uint64_t* data, uint16_t* reaso
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_int64(const uint16_t channel_id, const int64_t data, const uint16_t reason) {
+kelp_error_t com_send_int64(const uint16_t channel_id, const int64_t data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[11];
@@ -180,26 +196,31 @@ int8_t com_send_int64(const uint16_t channel_id, const int64_t data, const uint1
     bytes[9] = data >> 8;
     bytes[10] = data;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 11);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    return error;
 }
 
-int8_t com_get_int64(const uint16_t channel_id, int64_t* data, uint16_t* reason) {
+kelp_error_t com_get_int64(const uint16_t channel_id, int64_t* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[11];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 11);
-    if (error < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_INT64) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 11) {
+        return KELP_PROTOCOL;
     }
 
     int64_t data_int64 =
@@ -216,13 +237,13 @@ int8_t com_get_int64(const uint16_t channel_id, int64_t* data, uint16_t* reason)
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_float(const uint16_t channel_id, const float data, const uint16_t reason) {
+kelp_error_t com_send_float(const uint16_t channel_id, const float data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     union {
@@ -242,26 +263,31 @@ int8_t com_send_float(const uint16_t channel_id, const float data, const uint16_
     bytes[5] = d.b[2];
     bytes[6] = d.b[3];
 
-    uint16_t error = com_channel_write(channel_id, bytes, 7);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    return error;
 }
 
-int8_t com_get_float(const uint16_t channel_id, float* data, uint16_t* reason) {
+kelp_error_t com_get_float(const uint16_t channel_id, float* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[7];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 7);
-    if (error < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_FLO) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 7) {
+        return KELP_PROTOCOL;
     }
 
     memcpy(data, bytes + 3, 4);
@@ -269,13 +295,13 @@ int8_t com_get_float(const uint16_t channel_id, float* data, uint16_t* reason) {
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_double(const uint16_t channel_id, const double data, const uint16_t reason) {
+kelp_error_t com_send_double(const uint16_t channel_id, const double data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     union {
@@ -299,26 +325,31 @@ int8_t com_send_double(const uint16_t channel_id, const double data, const uint1
     bytes[9] = d.b[6];
     bytes[10] = d.b[7];
 
-    uint16_t error = com_channel_write(channel_id, bytes, 11);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    return error;
 }
 
-int8_t com_get_double(const uint16_t channel_id, double* data, uint16_t* reason) {
+kelp_error_t com_get_double(const uint16_t channel_id, double* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[11];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 11);
-    if (error < 0) {
+    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_DUB) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 11) {
+        return KELP_PROTOCOL;
     }
 
     memcpy(data, bytes + 3, 8);
@@ -326,13 +357,13 @@ int8_t com_get_double(const uint16_t channel_id, double* data, uint16_t* reason)
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_char(const uint16_t channel_id, const char data, const uint16_t reason) {
+kelp_error_t com_send_char(const uint16_t channel_id, const char data, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[4];
@@ -342,26 +373,31 @@ int8_t com_send_char(const uint16_t channel_id, const char data, const uint16_t 
     bytes[2] = reason;
     bytes[3] = data;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 4);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 4);
+    return error;
 }
 
-int8_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reason) {
+kelp_error_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_FULL; // channel empty
     }
 
     uint8_t bytes[4];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 4);
-    if (error < 0) {
+    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 4);
+    if (error != KELP_OK) {
         // there was an error
         return error;
     }
 
     if (bytes[0] != COM_TYPE_CHAR) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
+    }
+
+    if (bytes_read < 4) {
+        return KELP_PROTOCOL;
     }
 
     char data_char = bytes[3];
@@ -369,13 +405,13 @@ int8_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reason) {
 
     *reason = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_t size, const uint16_t reason) {
+kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_t size, const uint16_t reason) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     // initial packet shape:
@@ -387,7 +423,7 @@ int8_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_
 #if CHANNEL_SIZE < 9
 #warning CHANNEL_SIZE is too small for this protocol, make it bigger or run the risk of fatal falure if this function is used.
 
-    return -4; // CHANNEL_SIZE is too small, return to prevent a memory issue.
+    return KELP_TOO_BIG; // CHANNEL_SIZE is too small, return to prevent a memory issue.
 #endif
 
     // calculate values
@@ -410,8 +446,8 @@ int8_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_
     initial_packet[7] = packet_count >> 8;
     initial_packet[8] = packet_count;
 
-    uint16_t error = com_channel_write(channel_id, initial_packet, 9);
-    if (error < 0) {
+    kelp_error_t error = com_channel_write(channel_id, initial_packet, 9);
+    if (error != KELP_OK) {
         return error;
     }
 
@@ -426,7 +462,7 @@ int8_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_
 
         // if the previous packet has still not been received, fail
         if (!is_channel_ready_to_write(channel_id)) {
-            return -3;
+            return KELP_CHANNEL_FULL;
         }
 
         const uint32_t data_left = size - p * data_size;
@@ -446,19 +482,19 @@ int8_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_
             data_packet[b + prefix_size] = data[p * data_size + b];
         }
 
-        uint16_t error = com_channel_write(channel_id, data_packet, prefix_size + data_this_packet);
-        if (error < 0) {
+        error = com_channel_write(channel_id, data_packet, prefix_size + data_this_packet);
+        if (error != KELP_OK) {
             return error;
         }
     }
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
+kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     // calculate values
@@ -467,19 +503,20 @@ int8_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, ui
 
     // get initial packet
     uint8_t initial_packet[9];
+    uint16_t initial_packet_size = 0;
 
-    const uint16_t initial_packet_size = com_channel_read(channel_id, initial_packet, CHANNEL_SIZE);
-    if (initial_packet_size < 0) {
+    kelp_error_t error = com_channel_read(channel_id, initial_packet, &initial_packet_size, CHANNEL_SIZE);
+    if (error != KELP_OK) {
         // there was an error
-        return initial_packet_size;
+        return error;
     }
 
     if (initial_packet[0] != COM_TYPE_STR_I) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
     }
 
     if (initial_packet_size < 9) {
-        return -5; // protocol error
+        return KELP_PROTOCOL; // protocol error
     }
 
     *reason = initial_packet[1] << 8 | initial_packet[2];
@@ -497,7 +534,7 @@ int8_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, ui
 
         // if the previous packet has still not been received, fail
         if (!is_channel_ready_to_read(channel_id)) {
-            return -3;
+            return KELP_CHANNEL_EMPTY;
         }
 
         const uint32_t data_left = *size - p * data_size;
@@ -511,15 +548,16 @@ int8_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, ui
         // don't simplify prefix_size + data_this_packet to CHANNEL_SIZE
         // as data_this_packet != data_size
         uint8_t data_packet[prefix_size + data_this_packet];
+        uint16_t data_packet_size = 0;
 
-        uint16_t error = com_channel_read(channel_id, data_packet, prefix_size + data_this_packet);
-        if (error < 0) {
+        error = com_channel_read(channel_id, data_packet, &data_packet_size, prefix_size + data_this_packet);
+        if (error != KELP_OK) {
             // there was an error
             return error;
         }
 
         if (data_packet[0] != COM_TYPE_STR_D) {
-            return -4; // wrong data type
+            return KELP_WRONG_TYPE; // wrong data type
         }
 
         for (uint16_t b = 0; b < data_this_packet; b++) {
@@ -534,22 +572,22 @@ int8_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, ui
     }
 
     if (*size > max_size) {
-        return -6;
+        return KELP_TOO_BIG;
     }
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_char_array_fast(const uint16_t channel_id, const char* data, const uint16_t size, const uint16_t reason) {
+kelp_error_t com_send_char_array_fast(const uint16_t channel_id, const char* data, const uint16_t size, const uint16_t reason) {
 
     const uint32_t packet_size = size + 3;
 
     if (packet_size > CHANNEL_SIZE) {
-        return -4; // array too big, increase channel size, or decrease array size
+        return KELP_TOO_BIG; // array too big, increase channel size, or decrease array size
     }
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[packet_size];
@@ -562,27 +600,27 @@ int8_t com_send_char_array_fast(const uint16_t channel_id, const char* data, con
         bytes[3 + i] = data[i];
     }
 
-    uint16_t error = com_channel_write(channel_id, bytes, packet_size);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, packet_size);
+    return error;
 }
 
-int8_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHANNEL_SIZE], uint16_t* size, uint16_t* reason) {
+kelp_error_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHANNEL_SIZE], uint16_t* size, uint16_t* reason) {
     // TODO: How the HECK I'm I SUPPOSED to pass a pointer to an ARRAY! >:(
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[CHANNEL_SIZE];
 
-    *size = com_channel_read(channel_id, bytes, CHANNEL_SIZE) - 3;
-    if (*size < 0) {
+    kelp_error_t error = com_channel_read(channel_id, bytes, size, CHANNEL_SIZE) - 3;
+    if (error != KELP_OK) {
         // there was an error
-        return *size;
+        return error;
     }
 
     if (bytes[0] != COM_TYPE_ARRAY) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
     }
 
     *reason = bytes[1] << 8 | bytes[2];
@@ -591,13 +629,13 @@ int8_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHANNEL_S
         (*data)[i] = bytes[3 + i];
     }
 
-    return 0;
+    return KELP_OK;
 }
 
-int8_t com_send_request(const uint16_t channel_id, const uint16_t request) {
+kelp_error_t com_send_request(const uint16_t channel_id, const uint16_t request) {
 
     if (!is_channel_ready_to_write(channel_id)) {
-        return -3; // current contents have not been read
+        return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
     uint8_t bytes[3];
@@ -606,19 +644,20 @@ int8_t com_send_request(const uint16_t channel_id, const uint16_t request) {
     bytes[1] = request >> 8;
     bytes[2] = request;
 
-    uint16_t error = com_channel_write(channel_id, bytes, 3);
-    return error > 0 ? 0 : error;
+    kelp_error_t error = com_channel_write(channel_id, bytes, 3);
+    return error;
 }
 
-int8_t com_get_request(const uint16_t channel_id, uint16_t* request) {
+kelp_error_t com_get_request(const uint16_t channel_id, uint16_t* request) {
 
     if (!is_channel_ready_to_read(channel_id)) {
-        return -3; // channel empty
+        return KELP_CHANNEL_EMPTY; // channel empty
     }
 
     uint8_t bytes[3];
+    uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, 3);
+    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 3);
     if (error < 0) {
         // there was an error
         return error;
@@ -633,121 +672,121 @@ int8_t com_get_request(const uint16_t channel_id, uint16_t* request) {
     return 0;
 }
 
-int8_t com_send_uint32_blocking(uint16_t channel_id, uint32_t data, uint16_t reason) {
+kelp_error_t com_send_uint32_blocking(uint16_t channel_id, uint32_t data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_uint32(channel_id, data, reason);
 }
 
-int8_t com_get_uint32_blocking(uint16_t channel_id, uint32_t* data, uint16_t* reason) {
+kelp_error_t com_get_uint32_blocking(uint16_t channel_id, uint32_t* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_uint32(channel_id, data, reason);
 }
 
-int8_t com_send_int32_blocking(uint16_t channel_id, int32_t data, uint16_t reason) {
+kelp_error_t com_send_int32_blocking(uint16_t channel_id, int32_t data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_int32(channel_id, data, reason);
 }
 
-int8_t com_get_int32_blocking(uint16_t channel_id, int32_t* data, uint16_t* reason) {
+kelp_error_t com_get_int32_blocking(uint16_t channel_id, int32_t* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_int32(channel_id, data, reason);
 }
 
-int8_t com_send_uint64_blocking(uint16_t channel_id, uint64_t data, uint16_t reason) {
+kelp_error_t com_send_uint64_blocking(uint16_t channel_id, uint64_t data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_uint64(channel_id, data, reason);
 }
 
-int8_t com_get_uint64_blocking(uint16_t channel_id, uint64_t* data, uint16_t* reason) {
+kelp_error_t com_get_uint64_blocking(uint16_t channel_id, uint64_t* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_uint64(channel_id, data, reason);
 }
 
-int8_t com_send_int64_blocking(uint16_t channel_id, int64_t data, uint16_t reason) {
+kelp_error_t com_send_int64_blocking(uint16_t channel_id, int64_t data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_int64(channel_id, data, reason);
 }
 
-int8_t com_get_int64_blocking(uint16_t channel_id, int64_t* data, uint16_t* reason) {
+kelp_error_t com_get_int64_blocking(uint16_t channel_id, int64_t* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_int64(channel_id, data, reason);
 }
 
-int8_t com_send_float_blocking(uint16_t channel_id, float data, uint16_t reason) {
+kelp_error_t com_send_float_blocking(uint16_t channel_id, float data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_float(channel_id, data, reason);
 }
 
-int8_t com_get_float_blocking(uint16_t channel_id, float* data, uint16_t* reason) {
+kelp_error_t com_get_float_blocking(uint16_t channel_id, float* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_float(channel_id, data, reason);
 }
 
-int8_t com_send_double_blocking(uint16_t channel_id, double data, uint16_t reason) {
+kelp_error_t com_send_double_blocking(uint16_t channel_id, double data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_double(channel_id, data, reason);
 }
 
-int8_t com_get_double_blocking(uint16_t channel_id, double* data, uint16_t* reason) {
+kelp_error_t com_get_double_blocking(uint16_t channel_id, double* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_double(channel_id, data, reason);
 }
 
-int8_t com_send_char_blocking(uint16_t channel_id, char data, uint16_t reason) {
+kelp_error_t com_send_char_blocking(uint16_t channel_id, char data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_char(channel_id, data, reason);
 }
 
-int8_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* reason) {
+kelp_error_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_char(channel_id, data, reason);
 }
 
-int8_t com_send_char_array_blocking(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason) {
+kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_char_array(channel_id, data, size, reason);
 }
 
-int8_t com_get_char_array_blocking(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
+kelp_error_t com_get_char_array_blocking(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_char_array(channel_id, data, max_size, size, reason);
 }
 
-int8_t com_send_char_array_fast_blocking(uint16_t channel_id, const char* data, uint16_t size, uint16_t reason) {
+kelp_error_t com_send_char_array_fast_blocking(uint16_t channel_id, const char* data, uint16_t size, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_char_array_fast(channel_id, data, size, reason);
 }
 
-int8_t com_get_char_array_fast_blocking(uint16_t channel_id, char (*data)[CHANNEL_SIZE], uint16_t* size, uint16_t* reason) {
+kelp_error_t com_get_char_array_fast_blocking(uint16_t channel_id, char (*data)[CHANNEL_SIZE], uint16_t* size, uint16_t* reason) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_char_array_fast(channel_id, data, size, reason);
 }
 
-int8_t com_send_request_blocking(uint16_t channel_id, uint16_t request) {
+kelp_error_t com_send_request_blocking(uint16_t channel_id, uint16_t request) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_request(channel_id, request);
 }
 
-int8_t com_get_request_blocking(uint16_t channel_id, uint16_t* request) {
+kelp_error_t com_get_request_blocking(uint16_t channel_id, uint16_t* request) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_request(channel_id, request);

@@ -573,7 +573,7 @@ void task_return() {
 }
 
 __attribute__((noinline))
-int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args,
+kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args,
                       const uint8_t priority) {
     // Acquire lock for initial checks
     const uint32_t saved_irq = scheduler_spin_lock();
@@ -581,13 +581,13 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     if (num_tasks >= MAX_TASKS) {
         PRINT_WARNING("No more open tasks.\n");
         scheduler_spin_unlock(saved_irq);
-        return -1; // no more slots empty
+        return KELP_NONE_FREE; // no more slots empty
     }
 
     if (task_exists_no_lock(id)) {
         PRINT_WARNING("Task id already taken.\n");
         scheduler_spin_unlock(saved_irq);
-        return -2; // id taken
+        return KELP_ID_TAKEN; // id taken
     }
 
     task_t* task = NULL;
@@ -602,7 +602,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
 
     if (task == NULL) {
         scheduler_spin_unlock(saved_irq);
-        return -1; // mo more room for tasks
+        return KELP_NONE_FREE; // mo more room for tasks
     }
 
     task->state = TASK_CLAIMED;
@@ -627,7 +627,7 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     task->stack = (uint32_t*)malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
 
     if (task->stack == NULL) {
-        return -1;
+        return KELP_MEMORY;
     }
 
     task->stack_size = stack_size; // in 32bit words
@@ -686,10 +686,10 @@ int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const u
     task->state = TASK_READY;
 
     num_tasks++;
-    return 0;
+    return KELP_OK;
 }
 
-int32_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, const uint8_t priority) {
+kelp_error_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, const uint8_t priority) {
     return task_add_args(task_function, id, "\0", priority);
 }
 
@@ -720,9 +720,11 @@ void scheduler_start_this_core() {
     start_systick();
 
     PRINT_DEBUG("Timer Started!\n");
+
+    set_spsel(2);
 }
 
-int32_t kernel_start() {
+kelp_error_t kernel_start() {
 #if STATUS_LED
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
@@ -734,7 +736,6 @@ int32_t kernel_start() {
     multicore_launch_core1(scheduler_start_this_core);
 #endif
     scheduler_start_this_core();
-    set_spsel(2);
     return 0;
 }
 
@@ -771,7 +772,7 @@ void task_yield() {
     scheduler_raise_pendsv();
 }
 
-bool task_request_stack(uint32_t stack_size) {
+kelp_error_t task_request_stack(uint32_t stack_size) {
     const uint32_t saved_irq = scheduler_spin_lock();
     task_t* current_task = get_current_task();
     current_task->state = TASK_STACK_OVERFLOWED;
@@ -780,10 +781,10 @@ bool task_request_stack(uint32_t stack_size) {
     scheduler_raise_pendsv();
 
     if (current_task->stack_size == stack_size) {
-        return true;
+        return KELP_OK;
     }
 
-    return false;
+    return KELP_ERROR;
 }
 
 void task_end(int32_t code) {

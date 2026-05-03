@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "error_codes.h"
+
 /* Task Signals */
 #define TASK_SIGTERM (1 << 1) // graceful shutdown
 #define TASK_SIGKILL (1 << 2) // force shutdown
@@ -15,9 +17,9 @@
 #define TASK_SIGUSR2 (1 << 8)
 
 /* Basic Scheduler Functions */
-int32_t kernel_start();
-int32_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, char* args, uint8_t priority);
-int32_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, uint8_t priority);
+kelp_error_t kernel_start();
+kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, char* args, uint8_t priority);
+kelp_error_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, uint8_t priority);
 
 // task management
 /**
@@ -42,9 +44,9 @@ void task_yield();
  * Request the kernel to resize the stack of the current task
  * Both shrinking and growing is possible
  * @param stack_size the stack size wanted
- * @return true if the requested size was allocated
+ * @return KELP_OK if resize was successful
  */
-bool task_request_stack(uint32_t stack_size);
+kelp_error_t task_request_stack(uint32_t stack_size);
 
 void task_end(int32_t code);
 

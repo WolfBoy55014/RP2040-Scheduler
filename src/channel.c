@@ -98,45 +98,44 @@ bool is_connected_to_channel(const uint16_t channel_id) {
     return is_connected;
 }
 
-int32_t get_connected_channels_no_lock(uint16_t* channel_ids, const uint16_t size) {
-    uint16_t num_connected = 0;
+kelp_error_t get_connected_channels_no_lock(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size) {
+    *num_connected = 0;
 
     for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
         if (is_connected_to_channel_no_lock(c)) {
-            if (num_connected >= size) {
-                return -1;
+            if (*num_connected >= size) {
+                return KELP_TOO_BIG;
             }
 
-            channel_ids[num_connected] = c;
-            num_connected++;
+            channel_ids[*num_connected] = c;
+            *num_connected = *num_connected + 1;
         }
     }
 
-    return num_connected;
+    return KELP_OK;
 }
 
 // TODO: Optimize with cacheing
-int32_t get_connected_channels(uint16_t* channel_ids, const uint16_t size) {
+kelp_error_t get_connected_channels(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size) {
     const uint32_t saved_irq = channel_spin_lock();
 
-    int32_t num_connected = get_connected_channels_no_lock(channel_ids, size);
+    kelp_error_t error = get_connected_channels_no_lock(channel_ids, num_connected, size);
 
     channel_spin_unlock(saved_irq);
-    return num_connected;
+    return error;
 }
 
-int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
+kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
     task_t* with = NULL;
     com_channel_t* channel = NULL;
-    int32_t channel_id = -1;
 
     // check if `with_pid` matches the current (callee's) pid
     task_t* current_task = get_current_task();
     if (current_task->id == with_pid) {
         channel_spin_unlock(saved_irq);
-        return -3;
+        return KELP_INVALID_ID;
     }
 
     // find task with specified pid
@@ -152,7 +151,7 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     // if we could not find the task with `with_pid` return
     if (with == NULL) {
         channel_spin_unlock(saved_irq);
-        return -2;
+        return KELP_INVALID_ID;
     }
 
     // check if a channel already connects these two channels
@@ -162,7 +161,8 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
             if (channel->owner->id == current_task->id &&
                 channel->partner->id == with_pid) {
                 channel_spin_unlock(saved_irq);
-                return c; // remind them they already have this one
+                *channel_id = c; // remind them they already have this one
+                return KELP_OK;
             }
         }
     }
@@ -171,7 +171,7 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
         if (com_channels[c].state == CHANNEL_FREE) {
             channel = &com_channels[c];
-            channel_id = c;
+            *channel_id = c;
             break;
         }
     }
@@ -179,7 +179,7 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     // if there are none, return
     if (channel == NULL) {
         channel_spin_unlock(saved_irq);
-        return -1;
+        return KELP_NONE_FREE;
     }
 
     channel->state = CHANNEL_ALLOCATED;
@@ -203,14 +203,14 @@ int32_t com_channel_request(uint32_t with_pid, bool autoFree) {
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
-    return channel_id;
+    return KELP_OK;
 }
 
-int32_t com_channel_request_blocking(uint32_t with_pid, bool autoFree) {
-    int32_t error = 0;
+kelp_error_t com_channel_request_blocking(uint32_t with_pid, bool autoFree, uint16_t* channel_id) {
+    kelp_error_t error = KELP_NONE_FREE;
     for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
-        error = com_channel_request(with_pid, autoFree);
-        if (error >= 0) {
+        error = com_channel_request(with_pid, autoFree, channel_id);
+        if (error == KELP_OK) {
             break;
         }
         task_sleep_ms(1);
@@ -219,26 +219,26 @@ int32_t com_channel_request_blocking(uint32_t with_pid, bool autoFree) {
     return error;
 }
 
-int32_t com_channel_free(const uint16_t channel_id) {
+kelp_error_t com_channel_free(uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
     // check if channel exists
     if (channel_id >= NUM_CHANNELS) {
         channel_spin_unlock(saved_irq);
-        return -1;
+        return KELP_INVALID_ID;
     }
 
     // check if the current task is owner of the channel
     if (!is_owner_of_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
-        return -2;
+        return KELP_NOT_OWNER;
     }
 
     com_channel_t* channel = &com_channels[channel_id];
 
     if (channel->state == CHANNEL_FREE) {
         channel_spin_unlock(saved_irq);
-        return -3;
+        return KELP_UNALLOCATED;
     }
 
     // empty channel of contents to prevent spying
@@ -259,7 +259,7 @@ int32_t com_channel_free(const uint16_t channel_id) {
     channel->inactivity_cooldown = 0;
 
     channel_spin_unlock(saved_irq);
-    return channel_id;
+    return KELP_OK;
 }
 
 bool is_channel_ready_to_write(const uint16_t channel_id) {
@@ -289,17 +289,17 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
     return true;
 }
 
-int32_t com_channel_write(const uint16_t channel_id, const uint8_t* bytes, const uint16_t size) {
+kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
     const uint32_t saved_irq = channel_spin_lock();
 
     if (size > CHANNEL_SIZE) {
         channel_spin_unlock(saved_irq);
-        return -1;
+        return KELP_TOO_BIG;
     }
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
-        return -2;
+        return KELP_NOT_CONNECTED;
     }
 
     com_channel_t* channel = &com_channels[channel_id];
@@ -314,7 +314,7 @@ int32_t com_channel_write(const uint16_t channel_id, const uint8_t* bytes, const
 
     if (fifo->full) {
         channel_spin_unlock(saved_irq);
-        return -3;
+        return KELP_CHANNEL_FULL;
     }
 
     for (int b = 0; b < size; b++) {
@@ -326,10 +326,10 @@ int32_t com_channel_write(const uint16_t channel_id, const uint8_t* bytes, const
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
-    return size;
+    return KELP_OK;
 }
 
-int32_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
+kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
     com_channel_wait_until_writable(channel_id);
 
     return com_channel_write(channel_id, bytes, size);
@@ -362,12 +362,12 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
     return true;
 }
 
-int64_t com_channel_read(const uint16_t channel_id, uint8_t* buffer, const uint16_t size) {
+kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
     uint32_t saved_irq = channel_spin_lock();
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
-        return -2;
+        return KELP_NOT_CONNECTED;
     }
 
     com_channel_t* channel = &com_channels[channel_id];
@@ -382,40 +382,41 @@ int64_t com_channel_read(const uint16_t channel_id, uint8_t* buffer, const uint1
 
     if (!fifo->full) {
         channel_spin_unlock(saved_irq);
-        return -3;
+        return KELP_CHANNEL_EMPTY;
     }
 
     uint32_t fifo_count = fifo->count;
 
     if (size < fifo_count) {
         channel_spin_unlock(saved_irq);
-        return -1;
+        return KELP_TOO_BIG;
     }
 
     for (int b = 0; b < fifo_count; b++) {
         buffer[b] = fifo->bytes[b];
     }
 
+    *read = fifo_count;
     fifo->count = 0;
     fifo->full = 0;
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
-    return fifo_count;
+    return KELP_OK;
 }
 
-int64_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t size) {
+kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
     com_channel_wait_until_readable(channel_id);
 
-    return com_channel_read(channel_id, buffer, size);
+    return com_channel_read(channel_id, buffer, read, size);
 }
 
-int64_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t* buffer, const uint16_t size) {
+kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
     uint32_t saved_irq = channel_spin_lock();
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
-        return -2;
+        return KELP_NOT_CONNECTED;
     }
 
     com_channel_t* channel = &com_channels[channel_id];
@@ -430,32 +431,33 @@ int64_t com_channel_read_no_reset(const uint16_t channel_id, uint8_t* buffer, co
 
     if (!fifo->full) {
         channel_spin_unlock(saved_irq);
-        return -3;
+        return KELP_CHANNEL_EMPTY;
     }
 
     uint32_t fifo_count = fifo->count;
 
     if (size < fifo_count) {
         channel_spin_unlock(saved_irq);
-        return -1;
+        return KELP_TOO_BIG;
     }
 
     for (int b = 0; b < fifo_count; b++) {
         buffer[b] = fifo->bytes[b];
     }
 
+    *read = fifo_count;
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
-    return fifo_count;
+    return KELP_OK;
 }
 
-uint8_t com_channel_peek(const uint16_t channel_id) {
+kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
     uint32_t saved_irq = channel_spin_lock();
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
-        return 0;
+        return KELP_NOT_CONNECTED;
     }
 
     com_channel_t* channel = &com_channels[channel_id];
@@ -470,22 +472,22 @@ uint8_t com_channel_peek(const uint16_t channel_id) {
 
     if (!fifo->full) {
         channel_spin_unlock(saved_irq);
-        return 0;
+        return KELP_CHANNEL_EMPTY;
     }
 
     const uint32_t fifo_count = fifo->count;
 
     if (fifo_count < 1) {
         channel_spin_unlock(saved_irq);
-        return 0;
+        return KELP_CHANNEL_EMPTY;
     }
 
-    const uint8_t byte = fifo->bytes[0];
+    *byte = fifo->bytes[0];
 
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(saved_irq);
-    return byte;
+    return KELP_OK;
 }
 
 void com_channel_wait_until_writable(uint16_t channel_id) {
