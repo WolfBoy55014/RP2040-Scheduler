@@ -56,6 +56,43 @@ void set_scheduler_started(bool started) {
 void calculate_cpu_usage() {
     const uint32_t saved_irq = scheduler_spin_lock();
 
+#if CPU_FANCY_USAGE_MONITORING
+    uint32_t total_us_executing = 0;
+    uint32_t total_us_idling = 0;
+
+    // calculate core usage
+    for (uint8_t s = 0; s < CORE_COUNT; s++) {
+        scheduler_t* scheduler = &schedulers[s];
+
+        uint32_t us_executing = scheduler->us_executing;
+        uint32_t us_idling = scheduler->us_idling;
+
+        total_us_executing += us_executing;
+        total_us_idling += us_idling;
+
+        if (us_executing <= 0) {
+            scheduler->core_usage = 0;
+        }
+        else {
+            scheduler->core_usage = ((us_executing - us_idling) * 100) / us_executing;
+        }
+
+        scheduler->us_idling = 0;
+        scheduler->us_executing = 0;
+    }
+
+    // calculate task cpu usage
+    for (int t = 0; t < MAX_TASKS; t++) {
+        task_t* task = &tasks[t];
+
+        if (task->state == TASK_FREE) {
+            continue;
+        }
+
+        task->cpu_usage = (task->us_executing * 100) / total_us_executing;
+        task->us_executing = 0;
+    }
+#else
     uint32_t total_ticks_executing = 0;
     uint32_t total_ticks_idling = 0;
 
@@ -91,6 +128,7 @@ void calculate_cpu_usage() {
         task->cpu_usage = (task->ticks_executing * 100) / total_ticks_executing;
         task->ticks_executing = 0;
     }
+#endif
 
     scheduler_spin_unlock(saved_irq);
 }
@@ -341,16 +379,25 @@ void get_next_task() {
 #endif
 
     scheduler_t* scheduler = get_scheduler();
+    task_t* current_task = scheduler->current_task;
+#if CPU_FANCY_USAGE_MONITORING
+    uint32_t time_passed = time_us_32() - scheduler->loop_start_us;
+    current_task->us_executing += time_passed;
+    scheduler->us_executing += time_passed;
+    if (current_task->id < CORE_COUNT) {
+        scheduler->us_idling += time_passed;
+    }
+#endif
 
     int16_t highest_priority = -1;
 
-    if (scheduler->current_task->state == TASK_RUNNING) {
-        scheduler->current_task->state = TASK_READY; // tell scheduler that the old task is not running anymore
+    if (current_task->state == TASK_RUNNING) {
+        current_task->state = TASK_READY; // tell scheduler that the old task is not running anymore
         // when we move to dual-core, this will be useful
     }
 
-    if (scheduler->current_task->state == TASK_ZOMBIE) {
-        scheduler->current_task->state = TASK_DEAD;
+    if (current_task->state == TASK_ZOMBIE) {
+        current_task->state = TASK_DEAD;
     }
 
     uint32_t potential_index = scheduler->current_task_index;
@@ -401,6 +448,9 @@ void get_next_task() {
     printf("Loading task id: %lu\n", scheduler->current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
+#if CPU_FANCY_USAGE_MONITORING
+    scheduler->loop_start_us = time_us_32();
+#endif
 
     scheduler_spin_unlock(saved_irq);
 }
@@ -479,6 +529,7 @@ void isr_systick(void) {
 #endif
 
     scheduler_t* scheduler = get_scheduler();
+#if !CPU_FANCY_USAGE_MONITORING
     scheduler->ticks_executing++;
     task_t* task = get_current_task();
 
@@ -487,6 +538,7 @@ void isr_systick(void) {
     }
 
     task->ticks_executing++;
+#endif
 
     if (CORE_NUM == 0) {
         if ((scheduler->ticks_since_start % STACK_MONITOR_PERIOD) == 0) {
@@ -612,7 +664,11 @@ kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), co
 
     task->stack_usage = 0;
     task->cpu_usage = 0;
+#if CPU_FANCY_USAGE_MONITORING
+    task->us_executing = 0;
+#else
     task->ticks_executing = 0;
+#endif
 #if OPTIMIZE_STACK_MONITORING
     task->stack_recalculate_cooldown = 0;
 #endif
@@ -703,7 +759,11 @@ void idle_task(uint32_t pid, uint32_t* signals, char* args) {
 void scheduler_start_this_core() {
     task_add(idle_task, 0 + CORE_NUM, 0);
     scheduler_t* scheduler = get_scheduler();
+#if CPU_FANCY_USAGE_MONITORING
+    scheduler->us_executing = 0;
+#else
     scheduler->ticks_executing = 0;
+#endif
     scheduler->ticks_since_start = 0;
 
     if (num_tasks == 0) {

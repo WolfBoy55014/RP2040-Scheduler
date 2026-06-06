@@ -40,6 +40,10 @@
 #define CPU_USAGE_PERIOD 127    // calculate average cpu usage every this many ticks
 #endif
 
+#ifndef CPU_FANCY_USAGE_MONITORING
+#define CPU_FANCY_USAGE_MONITORING 1
+#endif
+
 #if USE_GOVERNOR
 #ifndef GOVERNOR_PERIOD
 #define GOVERNOR_PERIOD 251      // run the governor every this many ticks

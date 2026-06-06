@@ -48,7 +48,11 @@ typedef struct {
     absolute_time_t resume_us;  // When the task will be done sleeping (in absolute time)
 
     // --- System Usage Properties ---
+#if CPU_FANCY_USAGE_MONITORING
+    uint32_t us_executing;
+#else
     uint32_t ticks_executing;   // How many ticks this task was seen running
+#endif
     uint8_t cpu_usage;          // CPU utilization (0 - 100)
     uint8_t stack_usage;        // Stack utilization (0 - 100)
 #if OPTIMIZE_STACK_MONITORING
@@ -61,9 +65,15 @@ typedef struct {
     task_t *current_task;
     uint32_t current_task_index;
     uint32_t started;
+#if CPU_FANCY_USAGE_MONITORING
+    uint32_t us_executing;
+    uint32_t us_idling;
+    uint32_t loop_start_us;
+#else
     uint32_t ticks_executing;
-    uint64_t ticks_since_start;
     uint32_t ticks_idling;
+#endif
+    uint64_t ticks_since_start;
     uint8_t core_usage;
 } scheduler_t;
 
