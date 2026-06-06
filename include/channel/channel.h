@@ -36,6 +36,13 @@ bool is_connected_to_channel(uint16_t channel_id);
 kelp_error_t get_connected_channels(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size);
 
 /**
+ * @breif Get the PID of the task on the other side of the channel
+ * @param channel_id ID of the channel
+ * @return The PID of the task on the other side of the channel
+ */
+uint32_t get_channel_partner_pid(uint16_t channel_id);
+
+/**
  * @brief Request to be connected to the task with pid @code with_pid@endcode.
  * If there is a free communication channel,
  * a channel will be allocated and connected to the current task and task @code with_pid@endcode.

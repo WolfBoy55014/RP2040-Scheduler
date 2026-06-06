@@ -125,6 +125,19 @@ kelp_error_t get_connected_channels(uint16_t* channel_ids, uint16_t* num_connect
     return error;
 }
 
+uint32_t get_channel_partner_pid(uint16_t channel_id) {
+
+    if (is_connected_to_channel(channel_id)) {
+        if (is_owner_of_channel(channel_id)) {
+            return com_channels[channel_id].partner->id;
+        } else {
+            return com_channels[channel_id].owner->id;
+        }
+    }
+
+    return 0;
+}
+
 kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
