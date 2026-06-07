@@ -23,7 +23,7 @@
 
 #define GOVERNOR_TARGET_PERFORMANCE 25  // target cpu utilization for governor to aim for while in performance mode
 #define GOVERNOR_TARGET_BALANCED    50  // target cpu utilization for governor to aim for normally
-#define GOVERNOR_TARGET_POWER_SAVE  80  // target cpu utilization for governor to aim for while trying to same power
+#define GOVERNOR_TARGET_POWER_SAVE  80  // target cpu utilization for governor to aim for while trying to save power
 #define GOVERNOR_TARGET_TOLERANCE   5   // the governor will only adjust the cpu frequency is
                                         // this many percent above or below the target utilization
 
