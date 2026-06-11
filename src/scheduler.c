@@ -457,7 +457,7 @@ void get_next_task() {
 }
 
 __attribute__((noinline))
-void isr_hardfault(void) {
+void HardFault_Handler(void) {
 #if DUMP_STACKS
     heap_dump();
 #endif
@@ -512,7 +512,7 @@ void scheduler_raise_pendsv() {
 }
 
 __attribute__((noinline))
-void isr_systick(void) {
+void SysTick_Handler(void) {
 #if PROFILE_SCHEDULER
     profile.ran_channel_collection = false;
     profile.ran_schedular_collection = false;

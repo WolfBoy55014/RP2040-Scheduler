@@ -50,13 +50,14 @@ priviliged_true:
     movs r0, #1
     bx lr
 
-.global isr_pendsv
-.type isr_pendsv, %function
+.section .text.isr_pendsv, "ax"
+.global PendSV_Handler
+.type PendSV_Handler, %function
 
-isr_pendsv:
+PendSV_Handler:
     cpsid i                 // disable interrupts
 
-    blx scheduler_is_started // get wither this core's scheduler is started or not
+    blx scheduler_is_started // get whether this core's scheduler is started or not
 
     cmp r0, #0              // compare r0 with 0
     beq first_context_switch // this is the first time running
@@ -91,7 +92,7 @@ first_context_switch:       // skip here if this is the first time running, as t
     mov sp, r2              // and use it for now
 
     pop {r4-r7}             // pop r8-r11
-    mov r8, r4              // shuffle high values from low rigisters to high registers
+    mov r8, r4              // shuffle high values from low registers to high registers
     mov r9, r5
     mov r10, r6
     mov r11, r7
