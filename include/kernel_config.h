@@ -15,7 +15,7 @@
 // --- Scheduler Configs ---
 
 #ifndef CORE_COUNT
-#define CORE_COUNT 2            // number of cores the kernel will use
+#define CORE_COUNT 1            // number of cores the kernel will use
 #endif
 
 #ifndef MAX_TASKS
@@ -29,7 +29,7 @@
 #endif
 
 #ifndef USE_GOVERNOR
-#define USE_GOVERNOR 1          // run the cpu frequency governor
+#define USE_GOVERNOR 0          // run the cpu frequency governor
 #endif
 
 #ifndef GOVERNOR_LIMIT_SAFE
@@ -172,7 +172,7 @@
 #endif
 
 #ifndef DUMP_STACKS
-#define DUMP_STACKS 0
+#define DUMP_STACKS 1
 #endif
 
 #ifndef STATUS_LED

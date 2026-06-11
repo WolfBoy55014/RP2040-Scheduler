@@ -17,6 +17,7 @@
 #include "governor.h"
 #include "spinlock_internal.h"
 #include "kernel_config.h"
+#include "RP2040.h"
 
 /* Scheduler Variables */
 scheduler_t schedulers[CORE_COUNT];
@@ -765,6 +766,9 @@ void scheduler_start_this_core() {
     scheduler->ticks_executing = 0;
 #endif
     scheduler->ticks_since_start = 0;
+
+    NVIC_SetPriority(PendSV_IRQn, 0xFF);
+    NVIC_SetPriority(SysTick_IRQn, 2);
 
     if (num_tasks == 0) {
         PRINT_WARNING("No tasks to run\n");
