@@ -224,9 +224,6 @@ uint32_t resize_stack(task_t* task, uint32_t new_size) {
     task->stack_hwm = 0;
 #endif
 
-#if PRINT
-    printf("\nResizing stack took: %llu us\n", time_us_64() - start_time);
-#endif
 #if DUMP_STACKS
     heap_dump();
 #endif
@@ -319,9 +316,6 @@ void calculate_stack_usage() {
 #endif
         }
     }
-#if PRINT
-    printf("\nCalculating stack size took: %u us\n", time_us_32() - start_time);
-#endif
 
     scheduler_spin_unlock(saved_irq);
 }
@@ -445,7 +439,7 @@ void get_next_task() {
         }
     }
 #if PRINT
-    printf("Finding next task took: %lu us\n", time_us_32() - start_time);
+    printf("\ntime: %lu\n", time_us_32() - start_time);
     printf("Loading task id: %lu\n", scheduler->current_task->id);
 #endif
     scheduler->current_task->state = TASK_RUNNING; // tell scheduler that the new task is running
@@ -795,6 +789,9 @@ kelp_error_t kernel_start() {
     gpio_put(STATUS_LED_PIN, true);
 #endif
     spin_locks_init();
+#if USE_GOVERNOR
+    governor_init();
+#endif
 #if CORE_COUNT > 1
     multicore_reset_core1();
     multicore_launch_core1(scheduler_start_this_core);

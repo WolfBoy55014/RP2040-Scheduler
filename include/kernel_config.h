@@ -29,7 +29,7 @@
 #endif
 
 #ifndef USE_GOVERNOR
-#define USE_GOVERNOR 1          // run the cpu frequency governor
+#define USE_GOVERNOR 0          // run the cpu frequency governor
 #endif
 
 #ifndef GOVERNOR_LIMIT_SAFE
@@ -66,7 +66,7 @@
 
 #if DYNAMIC_STACK
 #ifndef STARTING_STACK_SIZE
-#define STARTING_STACK_SIZE 1024 // the amount of stack that is initially given to a task
+#define STARTING_STACK_SIZE 2048 // the amount of stack that is initially given to a task
 #endif
 
 #ifndef MIN_STACK_SIZE

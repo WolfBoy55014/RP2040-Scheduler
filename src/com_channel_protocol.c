@@ -613,7 +613,8 @@ kelp_error_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHA
 
     uint8_t bytes[CHANNEL_SIZE];
 
-    kelp_error_t error = com_channel_read(channel_id, bytes, size, CHANNEL_SIZE) - 3;
+    kelp_error_t error = com_channel_read(channel_id, bytes, size, CHANNEL_SIZE);
+    *size -= 3;
     if (error != KELP_OK) {
         // there was an error
         return error;

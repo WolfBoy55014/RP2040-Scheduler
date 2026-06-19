@@ -10,7 +10,7 @@
 
 #include "error_codes.h"
 
-#define CHANNEL_BLOCKING_TIMEOUT_MS 100
+#define CHANNEL_BLOCKING_TIMEOUT_MS 1000
 
 /**
  * @brief Check if the current task owns a channel or not
