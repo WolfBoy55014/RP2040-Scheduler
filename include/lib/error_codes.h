@@ -9,24 +9,28 @@
 // TODO: Apply to protocol functions
 // TODO: Apply to scheduler functions
 // TODO: Apply to service functions
-typedef enum {
-    KELP_OK,
-    KELP_ERROR,
-    KELP_MEMORY,
-    KELP_ID_TAKEN,
-    KELP_PROTOCOL,
-    KELP_TIMEOUT,
-    KELP_WRONG_TYPE,
-    KELP_CHANNEL_EMPTY,
-    KELP_CHANNEL_FULL,
-    KELP_TOO_BIG,
-    KELP_INVALID_ID,
-    KELP_NO_TASK,
-    KELP_NOT_OWNER,
-    KELP_UNALLOCATED,
-    KELP_ALLOCATED,
-    KELP_NONE_FREE,
-    KELP_NOT_CONNECTED,
+typedef enum : int32_t {
+    KELP_OK = 0,
+    KELP_ERROR = -1,
+    KELP_MEMORY = -2,
+    KELP_ID_TAKEN = -3,
+    KELP_PROTOCOL = -4,
+    KELP_TIMEOUT = -5,
+    KELP_WRONG_TYPE = -6,
+    KELP_CHANNEL_EMPTY = -7,
+    KELP_CHANNEL_FULL = -8,
+    KELP_TOO_BIG = -9,
+    KELP_INVALID_ID = -10,
+    KELP_NO_TASK = -11,
+    KELP_NOT_OWNER = -12,
+    KELP_UNALLOCATED = -13,
+    KELP_ALLOCATED = -14,
+    KELP_NONE_FREE = -15,
+    KELP_NOT_CONNECTED = -16,
+    KELP_WRONG_REASON = -17,
+    KELP_IO = -18
 } kelp_error_t;
+
+#define KELP_RETURN_ON_ERROR(error) if ((error) != KELP_OK) {return (error);}
 
 #endif //KELPOS_LITE_ERROR_CODES_H

@@ -789,6 +789,8 @@ kelp_error_t kernel_start() {
     gpio_put(STATUS_LED_PIN, true);
 #endif
     spin_locks_init();
+    kelp_error_t error = init_channels();
+    KELP_RETURN_ON_ERROR(error);
 #if USE_GOVERNOR
     governor_init();
 #endif

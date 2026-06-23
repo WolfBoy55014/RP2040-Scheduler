@@ -5,6 +5,8 @@
 #include "channel_internal.h"
 #include "channel.h"
 
+#include <stdlib.h>
+
 #include "scheduler.h"
 #include "scheduler_internal.h"
 #include "spinlock_internal.h"
@@ -41,6 +43,34 @@ uint8_t channel_garbage_collect() {
     }
 
     return 0;
+}
+
+kelp_error_t init_channels() {
+    uint32_t saved_irq = channel_spin_lock();
+
+    for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
+        // alloc memory for the fifos
+        com_channel_t* channel = &com_channels[c];
+        channel->state = CHANNEL_FREE;
+
+        void* rx_memory = malloc(sizeof(uint8_t) * CHANNEL_SIZE);
+        if (rx_memory == NULL) {
+            channel_spin_unlock(saved_irq);
+            return KELP_MEMORY;
+        }
+
+        void* tx_memory = malloc(sizeof(uint8_t) * CHANNEL_SIZE);
+        if (tx_memory == NULL) {
+            channel_spin_unlock(saved_irq);
+            free(rx_memory);
+            return KELP_MEMORY;
+        }
+
+        channel->fifo_rx.bytes = (uint8_t*) rx_memory;
+        channel->fifo_tx.bytes = (uint8_t*) tx_memory;
+    }
+    channel_spin_unlock(saved_irq);
+    return KELP_OK;
 }
 
 bool is_owner_of_channel_no_lock(const uint16_t channel_id) {

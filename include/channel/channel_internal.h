@@ -18,7 +18,7 @@ typedef enum {
 } channel_state_t;
 
 typedef struct {
-    uint8_t bytes[CHANNEL_SIZE];
+    uint8_t* bytes;
     uint8_t full;
     uint16_t count;
 } channel_fifo_t;
@@ -40,6 +40,8 @@ extern com_channel_t com_channels[NUM_CHANNELS];
  * @return
  */
 uint8_t channel_garbage_collect();
+
+kelp_error_t init_channels();
 
 bool is_owner_of_channel_no_lock(uint16_t channel_id);
 
