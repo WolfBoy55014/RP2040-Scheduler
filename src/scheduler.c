@@ -459,6 +459,10 @@ void HardFault_Handler(void) {
     gpio_init(STATUS_LED_PIN);
     gpio_set_dir(STATUS_LED_PIN, GPIO_OUT);
     gpio_put(STATUS_LED_PIN, false);
+    busy_wait_ms(250);
+    gpio_put(STATUS_LED_PIN, true);
+    busy_wait_ms(250);
+    gpio_put(STATUS_LED_PIN, false);
 #endif
     asm("bkpt");
 }

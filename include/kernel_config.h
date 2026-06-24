@@ -130,7 +130,7 @@
 #endif
 
 #ifndef CHANNEL_SIZE
-#define CHANNEL_SIZE 16         // length of each fifo in a communication channel (in bytes) (must be less that the 16-bit integer limit)
+#define CHANNEL_SIZE 128         // length of each fifo in a communication channel (in bytes) (must be less that the 16-bit integer limit)
 #endif
 
 #ifndef CHANNEL_AUTO_FREE_DELAY
