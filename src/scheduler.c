@@ -722,7 +722,7 @@ kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), co
     *(task->stack_pointer--) = task->id; // R0 (pass id to task)
 
     // I'm leaving these here as a testimony of frustration
-    // These are pushed by C onto the stack upon entering the interrupt handler
+    // These are pushed by C onto the stack upon entering the interrupt handler.
     // They would be an issue, except for the fact I'm now using the dual-stack-pointer
     // functionality of the Cortex-M0, so they are pushed onto the MSP stack, not the process stack.
     // I hope...
@@ -751,7 +751,7 @@ kelp_error_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), const u
 __attribute__((noinline))
 void idle_task(uint32_t pid, uint32_t* signals, char* args) {
     while (true) {
-        __wfi();
+        pico_default_asm_volatile("wfi");
     }
 }
 
@@ -852,6 +852,28 @@ kelp_error_t task_request_stack(uint32_t stack_size) {
     }
 
     return KELP_ERROR;
+}
+
+kelp_error_t task_stack_fit_buffer(const uint32_t headroom, const uint32_t buffer_bytes, const bool shrink) {
+    // convert bytes to 32-bit words, rounding up
+    const uint32_t buffer_words = (buffer_bytes + 3) / 4;
+    // headroom for all other locals and call frames
+    const uint32_t needed_words = buffer_words + headroom + STACK_OVERFLOW_THRESHOLD;
+
+    if (!shrink) {
+        // skip if stack is already big enough
+        task_t* current_task = get_current_task();
+        uint32_t current_stack_size = current_task->stack_size;
+        if (current_stack_size >= needed_words) {
+            return KELP_OK;
+        }
+    }
+
+    if (needed_words > MAX_STACK_SIZE) {
+        return KELP_MEMORY;
+    }
+
+    return task_request_stack(needed_words);
 }
 
 void task_end(int32_t code) {

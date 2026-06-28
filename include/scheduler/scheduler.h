@@ -48,6 +48,15 @@ void task_yield();
  */
 kelp_error_t task_request_stack(uint32_t stack_size);
 
+/**
+ * Resize the stack to fit a buffer
+ * @param headroom stack size required for normal operation, apart from what is needed for the buffer
+ * @param buffer_bytes size of buffer in bytes
+ * @param shrink whether to allow shrinking the stack
+ * @return KELP_OK if resize was successful
+ */
+kelp_error_t task_stack_fit_buffer(uint32_t headroom, uint32_t buffer_bytes, bool shrink);
+
 void task_end(int32_t code);
 
 /**
