@@ -86,7 +86,7 @@
 
 #else
 #ifndef STACK_SIZE
-#define STACK_SIZE 256          // stack size of each task. a task will be suspended if going over this limit
+#define STACK_SIZE 2048          // stack size of each task. a task will be suspended if going over this limit
 #endif
 #endif
 

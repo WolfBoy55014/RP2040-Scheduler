@@ -450,8 +450,58 @@ void get_next_task() {
     scheduler_spin_unlock(saved_irq);
 }
 
+// Called from the HardFault_Handler trampoline in context.s with a pointer to the
+// hardware-stacked exception frame: {R0, R1, R2, R3, R12, LR, PC, xPSR}.
+//
+// ARMv6-M (Cortex-M0/M0+, used on the RP2040) has no CFSR/HFSR/BFAR fault status
+// registers, so this stacked frame is the *only* ground-truth information the CPU
+// gives us about a fault. In particular:
+//   - frame[6] (PC)  is the address of the instruction that was executing/faulted.
+//   - frame[5] (LR)  is the return address of the function that PC was in
+//                    (i.e. who called it), recovered directly from hardware,
+//                    not guessed by a debugger's stack unwinder.
+// Anything an IDE's "Call Stack" view shows *beyond* these two values is
+// heuristic frame-pointer walking and can easily wander into uninitialized/
+// filler stack memory once it runs out of real unwind info - so don't trust
+// it past this point. Use `arm-none-eabi-addr2line -e <elf> <pc>` (and same
+// for lr) to map these addresses back to real source lines.
 __attribute__((noinline))
-void HardFault_Handler(void) {
+void hard_fault_handler_c(uint32_t* fault_stack) {
+    const uint32_t r0  = fault_stack[0];
+    const uint32_t r1  = fault_stack[1];
+    const uint32_t r2  = fault_stack[2];
+    const uint32_t r3  = fault_stack[3];
+    const uint32_t r12 = fault_stack[4];
+    const uint32_t lr  = fault_stack[5];
+    const uint32_t pc  = fault_stack[6];
+    const uint32_t psr = fault_stack[7];
+
+    uint32_t task_id = 0xFFFFFFFF;
+    void* task_stack_base = NULL;
+    void* task_stack_top = NULL;
+    if (scheduler_is_started()) {
+        task_t* current_task = get_current_task();
+        if (current_task) {
+            task_id = current_task->id;
+            task_stack_base = current_task->stack_base;
+            task_stack_top = current_task->stack;
+        }
+    }
+
+    printf("\n\n!!! HARD FAULT on core %u !!!\n", CORE_NUM);
+    printf("  Running task id: %lu\n", task_id);
+    printf("  PC : 0x%08lx  <-- faulting instruction (use addr2line on this)\n", pc);
+    printf("  LR : 0x%08lx  <-- caller of the faulting function\n", lr);
+    printf("  PSR: 0x%08lx\n", psr);
+    printf("  R0 : 0x%08lx   R1 : 0x%08lx   R2 : 0x%08lx   R3 : 0x%08lx\n", r0, r1, r2, r3);
+    printf("  R12: 0x%08lx\n", r12);
+    if (task_stack_base) {
+        printf("  Task stack: top=%p base=%p faulted_sp=%p\n",
+               task_stack_top, task_stack_base, (void*)fault_stack);
+    }
+    printf("!!! Anything below this in an IDE call-stack view past PC/LR above\n");
+    printf("!!! is heuristic unwinding and may not be trustworthy.\n\n");
+
 #if DUMP_STACKS
     heap_dump();
 #endif
@@ -466,6 +516,7 @@ void HardFault_Handler(void) {
 #endif
     asm("bkpt");
 }
+
 
 void refresh_systick_on_clock_change() {
     const uint32_t clock_hz = clock_get_hz(clk_sys);
@@ -840,6 +891,7 @@ void task_yield() {
 }
 
 kelp_error_t task_request_stack(uint32_t stack_size) {
+#if DYNAMIC_STACK
     const uint32_t saved_irq = scheduler_spin_lock();
     task_t* current_task = get_current_task();
     current_task->state = TASK_STACK_OVERFLOWED;
@@ -850,11 +902,12 @@ kelp_error_t task_request_stack(uint32_t stack_size) {
     if (current_task->stack_size == stack_size) {
         return KELP_OK;
     }
-
+#endif
     return KELP_ERROR;
 }
 
 kelp_error_t task_stack_fit_buffer(const uint32_t headroom, const uint32_t buffer_bytes, const bool shrink) {
+#if DYNAMIC_STACK
     // convert bytes to 32-bit words, rounding up
     const uint32_t buffer_words = (buffer_bytes + 3) / 4;
     // headroom for all other locals and call frames
@@ -874,6 +927,9 @@ kelp_error_t task_stack_fit_buffer(const uint32_t headroom, const uint32_t buffe
     }
 
     return task_request_stack(needed_words);
+#else
+    return KELP_ERROR;
+#endif
 }
 
 void task_end(int32_t code) {
