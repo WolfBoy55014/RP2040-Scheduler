@@ -19,8 +19,11 @@ typedef enum {
 
 typedef struct {
     uint8_t* bytes;
-    uint8_t full;
-    uint16_t count;
+    uint16_t head;      // write index (next write position)
+    uint16_t tail;      // read index (next read position)
+    uint16_t count;     // bytes available to read
+    uint16_t capacity;  // max bytes (excluding one byte for full/empty distinction)
+    uint8_t full;       // compatibility flag (set when count == capacity)
 } channel_fifo_t;
 
 typedef struct {
