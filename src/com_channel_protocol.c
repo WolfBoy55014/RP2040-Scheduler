@@ -478,15 +478,27 @@ kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_si
         return KELP_OK;
     }
 
-    // read data (channel chunks transparently)
-    uint16_t data_read = 0;
-    error = com_channel_read(channel_id, (uint8_t*)data, &data_read, *size);
-    if (error < 0) {
-        return error;
-    }
+    // accumulate data in chunks until we have it all
+    uint32_t remaining = *size;
+    uint32_t offset = 0;
 
-    if (data_read < *size) {
-        return KELP_PROTOCOL; // incomplete data
+    while (remaining > 0) {
+        uint16_t chunk = (remaining > 128) ? 128 : (uint16_t)remaining;
+        uint16_t chunk_read = 0;
+
+        error = com_channel_read(channel_id, (uint8_t*)data + offset, &chunk_read, chunk);
+        if (error < 0) {
+            return error;
+        }
+
+        if (chunk_read == 0) {
+            // no data available, wait for it
+            com_channel_wait_until_readable(channel_id);
+            continue;
+        }
+
+        remaining -= chunk_read;
+        offset += chunk_read;
     }
 
     return KELP_OK;
