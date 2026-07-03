@@ -414,78 +414,27 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
         return KELP_CHANNEL_FULL; // current contents have not been read
     }
 
-    // initial packet shape:
-    // | Type (8) | Reason (16) | Total Size (32) | Num Packets (16) |
+    // streaming header: | Type (1B) | Reason (2B) | Size (4B) |
+    // Total: 7 bytes. Channel handles chunking transparently.
+    uint8_t header[7];
+    header[0] = COM_TYPE_STR_I;
+    header[1] = reason >> 8;
+    header[2] = reason;
+    header[3] = size >> 24;
+    header[4] = size >> 16;
+    header[5] = size >> 8;
+    header[6] = size;
 
-    // following packet shape:
-    // | Type (8) | Data (n) |
-
-#if CHANNEL_SIZE < 9
-#warning CHANNEL_SIZE is too small for this protocol, make it bigger or run the risk of fatal falure if this function is used.
-
-    return KELP_TOO_BIG; // CHANNEL_SIZE is too small, return to prevent a memory issue.
-#endif
-
-    // calculate values
-    const uint16_t prefix_size = 1;                         // amount of each packet that is not data
-    const uint16_t data_size = CHANNEL_SIZE - prefix_size;  // amount of room in each packet for data
-    const uint16_t packet_count = (size + data_size - 1) / data_size;
-
-    // send initial packet
-    uint8_t initial_packet[9];
-
-    initial_packet[0] = COM_TYPE_STR_I;
-    initial_packet[1] = reason >> 8;
-    initial_packet[2] = reason;
-
-    initial_packet[3] = size >> 24;
-    initial_packet[4] = size >> 16;
-    initial_packet[5] = size >> 8;
-    initial_packet[6] = size;
-
-    initial_packet[7] = packet_count >> 8;
-    initial_packet[8] = packet_count;
-
-    kelp_error_t error = com_channel_write(channel_id, initial_packet, 9);
-    if (error != KELP_OK) {
+    // send header (writes whatever fits)
+    kelp_error_t error = com_channel_write(channel_id, header, 7);
+    if (error < 0) {
         return error;
     }
 
-    // send the data packets
-    for (uint16_t p = 0; p < packet_count; p++) {
-        const uint16_t packet_rx_timeout_ms = 500;
-
-        // wait for the previous packet to be received
-        for (uint16_t t = 0; t < packet_rx_timeout_ms && !is_channel_ready_to_write(channel_id); ++t) {
-            task_sleep_ms(1);
-        }
-
-        // if the previous packet has still not been received, fail
-        if (!is_channel_ready_to_write(channel_id)) {
-            return KELP_CHANNEL_FULL;
-        }
-
-        const uint32_t data_left = size - p * data_size;
-        uint16_t data_this_packet = data_size;
-
-        // if there is less than a packet's-worth of data, we don't need to fill the entire packet
-        if (data_left < data_size) {
-            data_this_packet = data_left;
-        }
-
-        uint8_t data_packet[prefix_size + data_this_packet];
-
-        data_packet[0] = COM_TYPE_STR_D;
-
-        for (uint16_t b = 0; b < data_this_packet; b++) {
-            // b != data_size only on the last packet
-            data_packet[b + prefix_size] = data[p * data_size + b];
-        }
-
-        error = com_channel_write(channel_id, data_packet, prefix_size + data_this_packet);
-        if (error != KELP_OK) {
-            return error;
-        }
+    // send data (channel chunks transparently, returns bytes written)
+    error = com_channel_write(channel_id, (const uint8_t*)data, size);
+    if (error < 0) {
+        return error;
     }
 
     return KELP_OK;
@@ -497,82 +446,45 @@ kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_si
         return KELP_CHANNEL_EMPTY; // channel empty
     }
 
-    // calculate values
-    const uint16_t prefix_size = 1;                         // amount of each packet that is not data
-    const uint16_t data_size = CHANNEL_SIZE - prefix_size;  // amount of room in each packet for data
+    // streaming header: | Type (1B) | Reason (2B) | Size (4B) |
+    // Total: 7 bytes. Channel handles chunking transparently.
+    uint8_t header[7];
+    uint16_t header_read = 0;
 
-    // get initial packet
-    uint8_t initial_packet[9];
-    uint16_t initial_packet_size = 0;
-
-    kelp_error_t error = com_channel_read(channel_id, initial_packet, &initial_packet_size, CHANNEL_SIZE);
-    if (error != KELP_OK) {
-        // there was an error
+    kelp_error_t error = com_channel_read(channel_id, header, &header_read, 7);
+    if (error < 0) {
         return error;
     }
 
-    if (initial_packet[0] != COM_TYPE_STR_I) {
+    if (header_read < 7) {
+        return KELP_PROTOCOL; // incomplete header
+    }
+
+    if (header[0] != COM_TYPE_STR_I) {
         return KELP_WRONG_TYPE; // wrong data type
     }
 
-    if (initial_packet_size < 9) {
-        return KELP_PROTOCOL; // protocol error
-    }
+    *reason = header[1] << 8 | header[2];
+    *size = header[3] << 24 | header[4] << 16 | header[5] << 8 | header[6];
 
-    *reason = initial_packet[1] << 8 | initial_packet[2];
-    *size = initial_packet[3] << 24 | initial_packet[4] << 16 | initial_packet[5] << 8 | initial_packet[6];
-    const uint16_t packet_count = initial_packet[7] << 8 | initial_packet[8];
-
-    // receive the data packets
-    for (uint16_t p = 0; p < packet_count; p++) {
-        const uint16_t packet_rx_timeout_ms = 500;
-
-        // wait for the previous packet to be received
-        for (uint16_t t = 0; t < packet_rx_timeout_ms && !is_channel_ready_to_read(channel_id); ++t) {
-            task_sleep_ms(1);
-        }
-
-        // if the previous packet has still not been received, fail
-        if (!is_channel_ready_to_read(channel_id)) {
-            return KELP_CHANNEL_EMPTY;
-        }
-
-        const uint32_t data_left = *size - p * data_size;
-        uint16_t data_this_packet = data_size;
-
-        // if there is less than a packet's-worth of data, we don't need to fill the entire packet
-        if (data_left < data_size) {
-            data_this_packet = data_left;
-        }
-
-        // don't simplify prefix_size + data_this_packet to CHANNEL_SIZE
-        // as data_this_packet != data_size
-        uint8_t data_packet[prefix_size + data_this_packet];
-        uint16_t data_packet_size = 0;
-
-        error = com_channel_read(channel_id, data_packet, &data_packet_size, prefix_size + data_this_packet);
-        if (error != KELP_OK) {
-            // there was an error
-            return error;
-        }
-
-        if (data_packet[0] != COM_TYPE_STR_D) {
-            return KELP_WRONG_TYPE; // wrong data type
-        }
-
-        for (uint16_t b = 0; b < data_this_packet; b++) {
-            // b != data_size only on the last packet
-
-            if ((p * data_size + b) > max_size) {
-                break;
-            }
-
-            data[p * data_size + b] = data_packet[b + prefix_size];
-        }
-    }
-
+    // receiver knows exactly how many bytes to read
     if (*size > max_size) {
         return KELP_TOO_BIG;
+    }
+
+    if (*size == 0) {
+        return KELP_OK;
+    }
+
+    // read data (channel chunks transparently)
+    uint16_t data_read = 0;
+    error = com_channel_read(channel_id, (uint8_t*)data, &data_read, *size);
+    if (error < 0) {
+        return error;
+    }
+
+    if (data_read < *size) {
+        return KELP_PROTOCOL; // incomplete data
     }
 
     return KELP_OK;

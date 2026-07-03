@@ -17,9 +17,10 @@
 #define COM_TYPE_FLO    5   // channel contains a float
 #define COM_TYPE_DUB    6   // channel contains a double
 #define COM_TYPE_CHAR   7   // channel contains a character
-#define COM_TYPE_STR_I  8   // channel contains a char[] (initial packet)
-#define COM_TYPE_STR_D  9   // channel contains a char[] (data packets)
+#define COM_TYPE_STR_I  8   // channel contains a char[] (streaming)
+#define COM_TYPE_STR_D  9   // channel contains a char[] (streaming)
 #define COM_TYPE_ARRAY  10  // channel contains a char[] but faster
+#define COM_TYPE_STR_LEN_OFFSET 3  // offset of size field in streaming header
 #define COM_TYPE_REQ    0   // channel contains a request id
 
 /**
