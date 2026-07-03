@@ -432,11 +432,27 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
         return error;
     }
 
-    // send data (channel chunks transparently)
-    uint16_t data_written = 0;
-    error = com_channel_write(channel_id, (const uint8_t*)data, size, &data_written);
-    if (error != KELP_OK) {
-        return error;
+    // send data in chunks until all is written
+    uint32_t remaining = size;
+    uint32_t offset = 0;
+
+    while (remaining > 0) {
+        uint16_t chunk = (remaining > 128) ? 128 : (uint16_t)remaining;
+        uint16_t chunk_written = 0;
+
+        error = com_channel_write(channel_id, (const uint8_t*)data + offset, chunk, &chunk_written);
+        if (error != KELP_OK) {
+            return error;
+        }
+
+        // no space available, wait for it
+        if (chunk_written == 0) {
+            com_channel_wait_until_writable(channel_id);
+            continue;
+        }
+
+        remaining -= chunk_written;
+        offset += chunk_written;
     }
 
     return KELP_OK;
