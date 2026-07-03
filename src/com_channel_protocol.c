@@ -26,7 +26,7 @@ kelp_error_t com_send_uint32(const uint16_t channel_id, const uint32_t data, con
     bytes[5] = data >> 8;
     bytes[6] = data;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7, NULL);
     return error;
 }
 
@@ -77,7 +77,7 @@ kelp_error_t com_send_int32(const uint16_t channel_id, const int32_t data, const
     bytes[5] = data >> 8;
     bytes[6] = data;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7, NULL);
     return error;
 }
 
@@ -132,7 +132,7 @@ kelp_error_t com_send_uint64(const uint16_t channel_id, const uint64_t data, con
     bytes[9] = data >> 8;
     bytes[10] = data;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11, NULL);
     return error;
 }
 
@@ -196,7 +196,7 @@ kelp_error_t com_send_int64(const uint16_t channel_id, const int64_t data, const
     bytes[9] = data >> 8;
     bytes[10] = data;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11, NULL);
     return error;
 }
 
@@ -263,7 +263,7 @@ kelp_error_t com_send_float(const uint16_t channel_id, const float data, const u
     bytes[5] = d.b[2];
     bytes[6] = d.b[3];
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 7);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 7, NULL);
     return error;
 }
 
@@ -325,7 +325,7 @@ kelp_error_t com_send_double(const uint16_t channel_id, const double data, const
     bytes[9] = d.b[6];
     bytes[10] = d.b[7];
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 11);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 11, NULL);
     return error;
 }
 
@@ -373,7 +373,7 @@ kelp_error_t com_send_char(const uint16_t channel_id, const char data, const uin
     bytes[2] = reason;
     bytes[3] = data;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 4);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 4, NULL);
     return error;
 }
 
@@ -426,14 +426,16 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
     header[6] = size;
 
     // send header (writes whatever fits)
-    kelp_error_t error = com_channel_write(channel_id, header, 7);
-    if (error < 0) {
+    uint16_t header_written = 0;
+    kelp_error_t error = com_channel_write(channel_id, header, 7, &header_written);
+    if (error != KELP_OK) {
         return error;
     }
 
-    // send data (channel chunks transparently, returns bytes written)
-    error = com_channel_write(channel_id, (const uint8_t*)data, size);
-    if (error < 0) {
+    // send data (channel chunks transparently)
+    uint16_t data_written = 0;
+    error = com_channel_write(channel_id, (const uint8_t*)data, size, &data_written);
+    if (error != KELP_OK) {
         return error;
     }
 
@@ -512,7 +514,7 @@ kelp_error_t com_send_char_array_fast(const uint16_t channel_id, const char* dat
         bytes[3 + i] = data[i];
     }
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, packet_size);
+    kelp_error_t error = com_channel_write(channel_id, bytes, packet_size, NULL);
     return error;
 }
 
@@ -557,7 +559,7 @@ kelp_error_t com_send_request(const uint16_t channel_id, const uint16_t request)
     bytes[1] = request >> 8;
     bytes[2] = request;
 
-    kelp_error_t error = com_channel_write(channel_id, bytes, 3);
+    kelp_error_t error = com_channel_write(channel_id, bytes, 3, NULL);
     return error;
 }
 

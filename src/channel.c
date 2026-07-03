@@ -418,11 +418,11 @@ kelp_error_t com_channel_free(uint16_t channel_id) {
 /**
  * Write bytes to a channel's FIFO using streaming (partial) model.
  * Writes as many bytes as will fit (up to `size`).
- * Returns the number of bytes actually written.
- * Returns -1 (KELP_CHANNEL_FULL) if no space available.
- * Returns -2 (KELP_NOT_CONNECTED) if channel not connected.
+ * Sets *written to the number of bytes actually written.
+ * Returns KELP_CHANNEL_FULL if no space available.
+ * Returns KELP_NOT_CONNECTED if channel not connected.
  */
-static kelp_error_t com_channel_write_streaming(uint16_t channel_id, const uint8_t* bytes, uint16_t size, bool reset_inactivity) {
+static kelp_error_t com_channel_write_streaming(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written, bool reset_inactivity) {
     uint32_t saved_irq = channel_spin_lock();
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
@@ -452,12 +452,16 @@ static kelp_error_t com_channel_write_streaming(uint16_t channel_id, const uint8
         fifo_write_byte(fifo, bytes[b]);
     }
 
+    if (written) {
+        *written = to_write;
+    }
+
     if (reset_inactivity) {
         channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
     }
 
     channel_spin_unlock(saved_irq);
-    return (kelp_error_t)to_write;
+    return KELP_OK;
 }
 
 bool is_channel_ready_to_write(const uint16_t channel_id) {
@@ -487,14 +491,14 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
     return true;
 }
 
-kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
-    return com_channel_write_streaming(channel_id, bytes, size, true);
+kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written) {
+    return com_channel_write_streaming(channel_id, bytes, size, written, true);
 }
 
-kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
+kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written) {
     com_channel_wait_until_writable(channel_id);
 
-    return com_channel_write(channel_id, bytes, size);
+    return com_channel_write(channel_id, bytes, size, written);
 }
 
 // ============================================================

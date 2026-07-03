@@ -85,13 +85,14 @@ kelp_error_t com_channel_free(uint16_t channel_id);
 bool is_channel_ready_to_write(uint16_t channel_id);
 
 /**
- * @brief Write a buffer of data to a channel
+ * @brief Write a buffer of data to a channel (streaming, partial writes allowed)
  * @param channel_id ID of the channel to write to
  * @param bytes Array of data to write
  * @param size The length of @code bytes@endcode
- * @return An error code
+ * @param written A pointer to save the number of bytes actually written to
+ * @return An error code (KELP_CHANNEL_FULL if no space, KELP_NOT_CONNECTED if disconnected)
  */
-kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
+kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written);
 
 /**
  * @brief Write a buffer of data to a channel, but will block until data can be written
