@@ -1,5 +1,6 @@
 //
 // Created by wolfboy on 7/29/25.
+// Streaming FIFO implementation optimized for throughput.
 //
 
 #include "channel_internal.h"
@@ -14,6 +15,106 @@
 
 com_channel_t com_channels[NUM_CHANNELS];
 
+// ============================================================
+// Streaming FIFO helpers (circular buffer)
+// ============================================================
+
+/**
+ * Initialize a channel FIFO to empty state.
+ * capacity is set to CHANNEL_SIZE - 1 to reserve one slot
+ * for the full/empty distinction.
+ */
+static inline void fifo_init(channel_fifo_t* fifo) {
+    fifo->head = 0;
+    fifo->tail = 0;
+    fifo->count = 0;
+    fifo->capacity = CHANNEL_SIZE - 1;
+    fifo->full = 0;
+}
+
+/**
+ * Write a single byte to the FIFO.
+ * Returns 1 on success, 0 if full.
+ * Must be called with spinlock held.
+ */
+static inline int fifo_write_byte(channel_fifo_t* fifo, uint8_t byte) {
+    if (fifo->count >= fifo->capacity) {
+        return 0; // full
+    }
+    fifo->bytes[fifo->head] = byte;
+    fifo->head = (fifo->head + 1) % CHANNEL_SIZE;
+    fifo->count++;
+    fifo->full = (fifo->count >= fifo->capacity);
+    return 1;
+}
+
+/**
+ * Read a single byte from the FIFO.
+ * Returns 1 on success, 0 if empty.
+ * Sets *byte to the read value on success.
+ * Must be called with spinlock held.
+ */
+static inline int fifo_read_byte(channel_fifo_t* fifo, uint8_t* byte) {
+    if (fifo->count == 0) {
+        return 0; // empty
+    }
+    *byte = fifo->bytes[fifo->tail];
+    fifo->tail = (fifo->tail + 1) % CHANNEL_SIZE;
+    fifo->count--;
+    fifo->full = 0;
+    return 1;
+}
+
+/**
+ * Check if FIFO has space for at least `space` bytes.
+ * Must be called with spinlock held.
+ */
+static inline int fifo_has_space(channel_fifo_t* fifo, uint16_t space) {
+    return fifo->count + space <= fifo->capacity;
+}
+
+/**
+ * Check if FIFO has at least `needed` bytes available.
+ * Must be called with spinlock held.
+ */
+static inline int fifo_has_data(channel_fifo_t* fifo, uint16_t needed) {
+    return fifo->count >= needed;
+}
+
+/**
+ * Get number of bytes available to read.
+ * Must be called with spinlock held.
+ */
+static inline uint16_t fifo_available(channel_fifo_t* fifo) {
+    return fifo->count;
+}
+
+/**
+ * Get number of bytes free for writing.
+ * Must be called with spinlock held.
+ */
+static inline uint16_t fifo_free_space(channel_fifo_t* fifo) {
+    return fifo->capacity - fifo->count;
+}
+
+/**
+ * Drain FIFO contents to prevent spying.
+ * Must be called with spinlock held.
+ */
+static inline void fifo_clear(channel_fifo_t* fifo) {
+    for (uint16_t i = 0; i < CHANNEL_SIZE; i++) {
+        fifo->bytes[i] = 0;
+    }
+    fifo->head = 0;
+    fifo->tail = 0;
+    fifo->count = 0;
+    fifo->full = 0;
+}
+
+// ============================================================
+// Channel garbage collection
+// ============================================================
+
 uint8_t channel_garbage_collect() {
     // go through all the channels,
     // and check if they can be automatically removed
@@ -25,13 +126,13 @@ uint8_t channel_garbage_collect() {
             continue;
         }
 
-        // remove it if it's owner no longer exists
+        // remove it if its owner no longer exists
         if (!task_exists(channel->owner->id)) {
             com_channel_free(i);
             continue;
         }
 
-        // remove it if it's set to auto free
+        // remove it if its set to auto free
         if (channel->can_auto_free) {
             if (channel->inactivity_cooldown > 0) {
                 channel->inactivity_cooldown -= 101;
@@ -44,6 +145,10 @@ uint8_t channel_garbage_collect() {
 
     return 0;
 }
+
+// ============================================================
+// Channel initialization
+// ============================================================
 
 kelp_error_t init_channels() {
     uint32_t saved_irq = channel_spin_lock();
@@ -68,10 +173,18 @@ kelp_error_t init_channels() {
 
         channel->fifo_rx.bytes = (uint8_t*) rx_memory;
         channel->fifo_tx.bytes = (uint8_t*) tx_memory;
+
+        // Initialize FIFO structures
+        fifo_init(&channel->fifo_rx);
+        fifo_init(&channel->fifo_tx);
     }
     channel_spin_unlock(saved_irq);
     return KELP_OK;
 }
+
+// ============================================================
+// Channel management helpers
+// ============================================================
 
 bool is_owner_of_channel_no_lock(const uint16_t channel_id) {
     if (channel_id >= NUM_CHANNELS) {
@@ -168,6 +281,10 @@ uint32_t get_channel_partner_pid(uint16_t channel_id) {
     return 0;
 }
 
+// ============================================================
+// Channel request/connection
+// ============================================================
+
 kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
 
@@ -230,16 +347,9 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
     channel->owner = current_task;
     channel->partner = with;
 
-    for (uint32_t i = 0; i < CHANNEL_SIZE; ++i) {
-        channel->fifo_rx.bytes[i] = 0;
-        channel->fifo_tx.bytes[i] = 0;
-    }
-
-    channel->fifo_rx.count = 0;
-    channel->fifo_tx.count = 0;
-
-    channel->fifo_rx.full = 0;
-    channel->fifo_tx.full = 0;
+    // Initialize FIFOs for streaming
+    fifo_init(&channel->fifo_rx);
+    fifo_init(&channel->fifo_tx);
 
     channel->state = CHANNEL_CONNECTED;
     channel->can_auto_free = autoFree;
@@ -261,6 +371,10 @@ kelp_error_t com_channel_request_blocking(uint32_t with_pid, bool autoFree, uint
 
     return error;
 }
+
+// ============================================================
+// Channel free
+// ============================================================
 
 kelp_error_t com_channel_free(uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock();
@@ -284,22 +398,67 @@ kelp_error_t com_channel_free(uint16_t channel_id) {
         return KELP_UNALLOCATED;
     }
 
-    // empty channel of contents to prevent spying
-    for (uint32_t i = 0; i < CHANNEL_SIZE; ++i) {
-        channel->fifo_rx.bytes[i] = 0;
-        channel->fifo_tx.bytes[i] = 0;
-    }
-
-    channel->fifo_rx.count = 0;
-    channel->fifo_tx.count = 0;
-
-    channel->fifo_rx.full = 0;
-    channel->fifo_tx.full = 0;
+    // clear FIFOs to prevent spying
+    fifo_clear(&channel->fifo_rx);
+    fifo_clear(&channel->fifo_tx);
 
     // free channel
     channel->state = CHANNEL_FREE;
     channel->can_auto_free = false;
     channel->inactivity_cooldown = 0;
+
+    channel_spin_unlock(saved_irq);
+    return KELP_OK;
+}
+
+// ============================================================
+// Streaming write with partial buffer support
+// ============================================================
+
+/**
+ * Write bytes to a channel's FIFO using streaming (partial) model.
+ * Writes as many bytes as will fit (up to `size`).
+ * Sets *written to the number of bytes actually written.
+ * Returns KELP_CHANNEL_FULL if no space available.
+ * Returns KELP_NOT_CONNECTED if channel not connected.
+ */
+static kelp_error_t com_channel_write_streaming(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written, bool reset_inactivity) {
+    uint32_t saved_irq = channel_spin_lock();
+
+    if (!is_connected_to_channel_no_lock(channel_id)) {
+        channel_spin_unlock(saved_irq);
+        return KELP_NOT_CONNECTED;
+    }
+
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
+
+    if (is_owner_of_channel_no_lock(channel_id)) {
+        fifo = &channel->fifo_tx;
+    }
+    else {
+        fifo = &channel->fifo_rx;
+    }
+
+    uint16_t free = fifo_free_space(fifo);
+    if (free == 0) {
+        channel_spin_unlock(saved_irq);
+        return KELP_CHANNEL_FULL;
+    }
+
+    // Write as many bytes as will fit
+    uint16_t to_write = (size < free) ? size : free;
+    for (uint16_t b = 0; b < to_write; b++) {
+        fifo_write_byte(fifo, bytes[b]);
+    }
+
+    if (written) {
+        *written = to_write;
+    }
+
+    if (reset_inactivity) {
+        channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
+    }
 
     channel_spin_unlock(saved_irq);
     return KELP_OK;
@@ -323,7 +482,7 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
         fifo = &channel->fifo_rx;
     }
 
-    if (fifo->full) {
+    if (fifo_free_space(fifo) == 0) {
         channel_spin_unlock(saved_irq);
         return false;
     }
@@ -332,13 +491,29 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
     return true;
 }
 
-kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
-    const uint32_t saved_irq = channel_spin_lock();
+kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written) {
+    return com_channel_write_streaming(channel_id, bytes, size, written, true);
+}
 
-    if (size > CHANNEL_SIZE) {
-        channel_spin_unlock(saved_irq);
-        return KELP_TOO_BIG;
-    }
+kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_channel_write(channel_id, bytes, size, written);
+}
+
+// ============================================================
+// Streaming read with partial buffer support
+// ============================================================
+
+/**
+ * Read bytes from a channel's FIFO using streaming (partial) model.
+ * Reads up to `size` bytes (or all available if less).
+ * Sets *read to the number of bytes actually read.
+ * Returns KELP_CHANNEL_EMPTY if no data available.
+ * Returns KELP_NOT_CONNECTED if channel not connected.
+ */
+static kelp_error_t com_channel_read_streaming(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size, bool reset_inactivity) {
+    uint32_t saved_irq = channel_spin_lock();
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
         channel_spin_unlock(saved_irq);
@@ -349,33 +524,34 @@ kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16
     channel_fifo_t* fifo;
 
     if (is_owner_of_channel_no_lock(channel_id)) {
-        fifo = &channel->fifo_tx;
-    }
-    else {
         fifo = &channel->fifo_rx;
     }
+    else {
+        fifo = &channel->fifo_tx;
+    }
 
-    if (fifo->full) {
+    uint16_t available = fifo_available(fifo);
+    if (available == 0) {
         channel_spin_unlock(saved_irq);
-        return KELP_CHANNEL_FULL;
+        return KELP_CHANNEL_EMPTY;
     }
 
-    for (int b = 0; b < size; b++) {
-        fifo->bytes[b] = bytes[b];
+    // Read up to `size` bytes or all available (whichever is smaller)
+    uint16_t to_read = (size < available) ? size : available;
+    for (uint16_t b = 0; b < to_read; b++) {
+        uint8_t byte;
+        fifo_read_byte(fifo, &byte);
+        buffer[b] = byte;
     }
 
-    fifo->count = size;
-    fifo->full = 1;
-    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
+    *read = to_read;
+
+    if (reset_inactivity) {
+        channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
+    }
 
     channel_spin_unlock(saved_irq);
     return KELP_OK;
-}
-
-kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size) {
-    com_channel_wait_until_writable(channel_id);
-
-    return com_channel_write(channel_id, bytes, size);
 }
 
 bool is_channel_ready_to_read(const uint16_t channel_id) {
@@ -396,7 +572,7 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
         fifo = &channel->fifo_tx;
     }
 
-    if (!fifo->full) {
+    if (fifo_available(fifo) == 0) {
         channel_spin_unlock(saved_irq);
         return false;
     }
@@ -406,46 +582,7 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
 }
 
 kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
-    uint32_t saved_irq = channel_spin_lock();
-
-    if (!is_connected_to_channel_no_lock(channel_id)) {
-        channel_spin_unlock(saved_irq);
-        return KELP_NOT_CONNECTED;
-    }
-
-    com_channel_t* channel = &com_channels[channel_id];
-    channel_fifo_t* fifo;
-
-    if (is_owner_of_channel_no_lock(channel_id)) {
-        fifo = &channel->fifo_rx;
-    }
-    else {
-        fifo = &channel->fifo_tx;
-    }
-
-    if (!fifo->full) {
-        channel_spin_unlock(saved_irq);
-        return KELP_CHANNEL_EMPTY;
-    }
-
-    uint32_t fifo_count = fifo->count;
-
-    if (size < fifo_count) {
-        channel_spin_unlock(saved_irq);
-        return KELP_TOO_BIG;
-    }
-
-    for (int b = 0; b < fifo_count; b++) {
-        buffer[b] = fifo->bytes[b];
-    }
-
-    *read = fifo_count;
-    fifo->count = 0;
-    fifo->full = 0;
-    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
-
-    channel_spin_unlock(saved_irq);
-    return KELP_OK;
+    return com_channel_read_streaming(channel_id, buffer, read, size, true);
 }
 
 kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
@@ -455,44 +592,7 @@ kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uin
 }
 
 kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
-    uint32_t saved_irq = channel_spin_lock();
-
-    if (!is_connected_to_channel_no_lock(channel_id)) {
-        channel_spin_unlock(saved_irq);
-        return KELP_NOT_CONNECTED;
-    }
-
-    com_channel_t* channel = &com_channels[channel_id];
-    channel_fifo_t* fifo;
-
-    if (is_owner_of_channel_no_lock(channel_id)) {
-        fifo = &channel->fifo_rx;
-    }
-    else {
-        fifo = &channel->fifo_tx;
-    }
-
-    if (!fifo->full) {
-        channel_spin_unlock(saved_irq);
-        return KELP_CHANNEL_EMPTY;
-    }
-
-    uint32_t fifo_count = fifo->count;
-
-    if (size < fifo_count) {
-        channel_spin_unlock(saved_irq);
-        return KELP_TOO_BIG;
-    }
-
-    for (int b = 0; b < fifo_count; b++) {
-        buffer[b] = fifo->bytes[b];
-    }
-
-    *read = fifo_count;
-    channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
-
-    channel_spin_unlock(saved_irq);
-    return KELP_OK;
+    return com_channel_read_streaming(channel_id, buffer, read, size, false);
 }
 
 kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
@@ -513,19 +613,14 @@ kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
         fifo = &channel->fifo_tx;
     }
 
-    if (!fifo->full) {
+    if (fifo_available(fifo) == 0) {
         channel_spin_unlock(saved_irq);
         return KELP_CHANNEL_EMPTY;
     }
 
-    const uint32_t fifo_count = fifo->count;
-
-    if (fifo_count < 1) {
-        channel_spin_unlock(saved_irq);
-        return KELP_CHANNEL_EMPTY;
-    }
-
-    *byte = fifo->bytes[0];
+    // Peek at the first available byte without removing it
+    uint16_t tail = fifo->tail;
+    *byte = fifo->bytes[tail];
 
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
@@ -552,4 +647,3 @@ void com_channel_wait_until_readable(uint16_t channel_id) {
         task_sleep_ms(1);
     }
 }
-
