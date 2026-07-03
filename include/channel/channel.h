@@ -101,7 +101,7 @@ kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16
  * @param size The length of @code bytes@endcode
  * @return An error code
  */
-kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
+kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size, uint16_t* written);
 
 /**
  * @brief Check if channel has data ready to read
