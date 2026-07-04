@@ -30,6 +30,7 @@ typedef struct {
     channel_fifo_t fifo_rx;
     channel_fifo_t fifo_tx;
     channel_state_t state;
+    uint8_t spinlock_id;  // hardware spinlock ID for this channel
 } com_channel_t;
 
 extern com_channel_t com_channels[NUM_CHANNELS];
