@@ -153,6 +153,11 @@
                                                     // as this spinlock is reserved for OSs
 #endif
 
+#ifndef NUM_CHANNEL_SPINLOCKS
+#define NUM_CHANNEL_SPINLOCKS 4                     // number of spinlocks to share between channels
+                                                    // to reduce contention.
+#endif
+
 // --- Debug ---
 
 #ifndef PRINT

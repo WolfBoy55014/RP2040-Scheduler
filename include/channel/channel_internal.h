@@ -39,7 +39,7 @@ extern com_channel_t com_channels[NUM_CHANNELS];
  * Find and free up inactive channels.
  * @return
  */
-uint8_t channel_garbage_collect();
+kelp_error_t channel_garbage_collect();
 
 kelp_error_t init_channels();
 
