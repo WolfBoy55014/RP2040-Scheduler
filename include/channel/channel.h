@@ -152,4 +152,9 @@ void com_channel_wait_until_writable(uint16_t channel_id);
 
 void com_channel_wait_until_readable(uint16_t channel_id);
 
+/**
+ * @brief Send an IPI to wake up waiting tasks
+ */
+void send_channel_ipi(void);
+
 #endif //CHANNEL_H
