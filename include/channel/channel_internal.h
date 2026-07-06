@@ -19,7 +19,7 @@ typedef enum {
 
 typedef struct {
     uint8_t* bytes;
-    uint8_t full;
+    volatile uint8_t full;
     uint16_t count;
 } channel_fifo_t;
 

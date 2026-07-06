@@ -12,6 +12,7 @@
 #include "scheduler_internal.h"
 #include "spinlock_internal.h"
 #include "hardware/sync.h"
+#include "hardware/timer.h"
 
 com_channel_t com_channels[NUM_CHANNELS];
 
@@ -558,21 +559,61 @@ kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
 }
 
 void com_channel_wait_until_writable(uint16_t channel_id) {
-    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
-        if (is_channel_ready_to_write(channel_id)) {
+    if (!is_connected_to_channel(channel_id)) {
+        return;
+    }
+
+    uint32_t saved_irq = channel_spin_lock(channel_id);
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
+
+    if (is_owner_of_channel_no_lock(channel_id)) {
+        fifo = &channel->fifo_tx;
+    }
+    else {
+        fifo = &channel->fifo_rx;
+    }
+    channel_spin_unlock(channel_id, saved_irq);
+
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 20; t++) {
+        if (!fifo->full) {
             break;
         }
 
-        task_sleep_ms(1);
+#if CORE_COUNT > 1
+        busy_wait_us(50);
+#else
+        task_sleep_us(100):
+#endif
     }
 }
 
 void com_channel_wait_until_readable(uint16_t channel_id) {
-    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS; t++) {
-        if (is_channel_ready_to_read(channel_id)) {
+    if (!is_connected_to_channel(channel_id)) {
+        return;
+    }
+
+    uint32_t saved_irq = channel_spin_lock(channel_id);
+    com_channel_t* channel = &com_channels[channel_id];
+    channel_fifo_t* fifo;
+
+    if (is_owner_of_channel_no_lock(channel_id)) {
+        fifo = &channel->fifo_rx;
+    }
+    else {
+        fifo = &channel->fifo_tx;
+    }
+    channel_spin_unlock(channel_id, saved_irq);
+
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 20; t++) {
+        if (fifo->full) {
             break;
         }
 
-        task_sleep_ms(1);
+#if CORE_COUNT > 1
+        busy_wait_us(50);
+#else
+        task_sleep_us(100):
+#endif
     }
 }

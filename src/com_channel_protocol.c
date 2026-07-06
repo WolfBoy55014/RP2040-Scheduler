@@ -4,11 +4,13 @@
 
 #include "com_channel_protocol.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "scheduler.h"
 #include "channel_internal.h"
 #include  "error_codes.h"
+#include "hardware/timer.h"
 
 kelp_error_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uint16_t reason) {
 
@@ -409,7 +411,6 @@ kelp_error_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reaso
 }
 
 kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_t size, const uint16_t reason) {
-
     if (!is_channel_ready_to_write(channel_id)) {
         return KELP_CHANNEL_FULL; // current contents have not been read
     }
@@ -453,12 +454,8 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
 
     // send the data packets
     for (uint16_t p = 0; p < packet_count; p++) {
-        const uint16_t packet_rx_timeout_ms = 500;
-
         // wait for the previous packet to be received
-        for (uint16_t t = 0; t < packet_rx_timeout_ms && !is_channel_ready_to_write(channel_id); ++t) {
-            task_sleep_ms(1);
-        }
+        com_channel_wait_until_writable(channel_id);
 
         // if the previous packet has still not been received, fail
         if (!is_channel_ready_to_write(channel_id)) {
@@ -477,10 +474,7 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
 
         data_packet[0] = COM_TYPE_STR_D;
 
-        for (uint16_t b = 0; b < data_this_packet; b++) {
-            // b != data_size only on the last packet
-            data_packet[b + prefix_size] = data[p * data_size + b];
-        }
+        memcpy(&data_packet[prefix_size], &data[p * data_size], data_this_packet);
 
         error = com_channel_write(channel_id, data_packet, prefix_size + data_this_packet);
         if (error != KELP_OK) {
@@ -492,7 +486,6 @@ kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], u
 }
 
 kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_size, uint32_t* size, uint16_t* reason) {
-
     if (!is_channel_ready_to_read(channel_id)) {
         return KELP_CHANNEL_EMPTY; // channel empty
     }
@@ -522,15 +515,10 @@ kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_si
     *reason = initial_packet[1] << 8 | initial_packet[2];
     *size = initial_packet[3] << 24 | initial_packet[4] << 16 | initial_packet[5] << 8 | initial_packet[6];
     const uint16_t packet_count = initial_packet[7] << 8 | initial_packet[8];
-
     // receive the data packets
     for (uint16_t p = 0; p < packet_count; p++) {
-        const uint16_t packet_rx_timeout_ms = 500;
-
         // wait for the previous packet to be received
-        for (uint16_t t = 0; t < packet_rx_timeout_ms && !is_channel_ready_to_read(channel_id); ++t) {
-            task_sleep_ms(1);
-        }
+        com_channel_wait_until_readable(channel_id);
 
         // if the previous packet has still not been received, fail
         if (!is_channel_ready_to_read(channel_id)) {
@@ -560,15 +548,13 @@ kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_si
             return KELP_WRONG_TYPE; // wrong data type
         }
 
-        for (uint16_t b = 0; b < data_this_packet; b++) {
-            // b != data_size only on the last packet
-
-            if ((p * data_size + b) > max_size) {
-                break;
-            }
-
-            data[p * data_size + b] = data_packet[b + prefix_size];
+        if (p * data_size + data_this_packet > max_size) {
+            // shrink data_this_packet when there isn't enough room
+            uint32_t total_read = p * data_size;
+            data_this_packet = max_size - total_read;
         }
+
+        memcpy(&data[p * data_size], &data_packet[prefix_size], data_this_packet);
     }
 
     if (*size > max_size) {
