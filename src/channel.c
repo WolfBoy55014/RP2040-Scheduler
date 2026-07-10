@@ -11,8 +11,6 @@
 #include "scheduler.h"
 #include "scheduler_internal.h"
 #include "spinlock_internal.h"
-#include "hardware/sync.h"
-#include "hardware/timer.h"
 
 com_channel_t com_channels[NUM_CHANNELS];
 
@@ -575,16 +573,12 @@ void com_channel_wait_until_writable(uint16_t channel_id) {
     }
     channel_spin_unlock(channel_id, saved_irq);
 
-    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 20; t++) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 40; t++) {
         if (!fifo->full) {
             break;
         }
 
-#if CORE_COUNT > 1
-        busy_wait_us(50);
-#else
-        task_sleep_us(100):
-#endif
+        task_sleep_us(25);
     }
 }
 
@@ -605,15 +599,11 @@ void com_channel_wait_until_readable(uint16_t channel_id) {
     }
     channel_spin_unlock(channel_id, saved_irq);
 
-    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 20; t++) {
+    for (uint16_t t = 0; t < CHANNEL_BLOCKING_TIMEOUT_MS * 40; t++) {
         if (fifo->full) {
             break;
         }
 
-#if CORE_COUNT > 1
-        busy_wait_us(50);
-#else
-        task_sleep_us(100):
-#endif
+        task_sleep_us(25);
     }
 }
