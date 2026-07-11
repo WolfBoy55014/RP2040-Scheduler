@@ -30,6 +30,7 @@ typedef enum : int32_t {
     KELP_WRONG_REASON = -17,
     KELP_IO = -18,
     KELP_NO_EXIST = -19,
+    KELP_BUSY = -20,
 } kelp_error_t;
 
 #define KELP_RETURN_ON_ERROR(error) if ((error) != KELP_OK) {return (error);}
