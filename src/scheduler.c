@@ -899,6 +899,7 @@ kelp_error_t task_request_stack(uint32_t stack_size) {
     scheduler_spin_unlock(saved_irq);
     scheduler_raise_pendsv();
 
+    current_task = get_current_task();
     if (current_task->stack_size == stack_size) {
         return KELP_OK;
     }

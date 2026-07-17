@@ -44,7 +44,7 @@ typedef struct {
     uint32_t requested_stack_size;
 
     // --- State Properties ---
-    task_state_t state;         // State of the task
+    volatile task_state_t state;         // State of the task
     absolute_time_t resume_us;  // When the task will be done sleeping (in absolute time)
 
     // --- System Usage Properties ---
