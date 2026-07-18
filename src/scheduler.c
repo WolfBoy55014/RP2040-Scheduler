@@ -557,7 +557,7 @@ void check_multicore_signals() {
 #endif
 
 void scheduler_raise_pendsv() {
-    *(volatile uint32_t*)(0xe0000000 | M0PLUS_ICSR_OFFSET) = (1L << 28);
+    (*(volatile uint32_t *)(PPB_BASE + M0PLUS_ICSR_OFFSET)) |= M0PLUS_ICSR_PENDSVSET_BITS;
 }
 
 __attribute__((noinline))
@@ -816,7 +816,7 @@ void scheduler_start_this_core() {
 #endif
     scheduler->ticks_since_start = 0;
 
-    NVIC_SetPriority(PendSV_IRQn, 0xFF);
+    NVIC_SetPriority(PendSV_IRQn, 3);
     NVIC_SetPriority(SysTick_IRQn, 2);
 
     if (num_tasks == 0) {
