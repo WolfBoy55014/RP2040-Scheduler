@@ -111,21 +111,39 @@ inline void scheduler_spin_unlock(const uint32_t irqs) {
 inline void scheduler_spin_unlock_unsafe() {
 }
 
-inline bool channel_spin_locked() {
+inline bool global_channel_spin_locked() {
     return false;
 }
 
-inline uint32_t channel_spin_lock() {
+inline uint32_t global_channel_spin_lock() {
     return save_and_disable_interrupts();
 }
 
-inline void channel_spin_lock_unsafe() {
+inline void global_channel_spin_lock_unsafe() {
 }
 
-inline void channel_spin_unlock(const uint32_t irqs) {
+inline void global_channel_spin_unlock(const uint32_t irqs) {
     restore_interrupts_from_disabled(irqs);
 }
 
-inline void channel_spin_unlock_unsafe() {
+inline void global_channel_spin_unlock_unsafe() {
+}
+
+inline bool channel_spin_locked(uint16_t channel_id) {
+    return false;
+}
+
+inline uint32_t channel_spin_lock(uint16_t channel_id) {
+    return save_and_disable_interrupts();
+}
+
+inline void channel_spin_lock_unsafe(uint16_t channel_id) {
+}
+
+inline void channel_spin_unlock(uint16_t channel_id, const uint32_t irqs) {
+    restore_interrupts_from_disabled(irqs);
+}
+
+inline void channel_spin_unlock_unsafe(uint16_t channel_id) {
 }
 #endif
