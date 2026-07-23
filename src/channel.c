@@ -197,7 +197,10 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
     }
 
     // find task with specified pid
-    for (uint32_t t = 0; t < num_tasks; t++) {
+    for (uint32_t t = 0; t < MAX_TASKS; t++) {
+        if (tasks[t].state == TASK_FREE) {
+            continue;
+        }
         if (tasks[t].id == with_pid) {
             with = &tasks[t];
             break;
