@@ -218,30 +218,31 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
     // check if a channel already connects these two channels
     for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
         channel_spin_lock_unsafe(c);
-        channel = &com_channels[c];
-        if (channel->state == CHANNEL_CONNECTED) {
-            if (channel->owner->id == current_task->id &&
-                channel->partner->id == with_pid) {
+        com_channel_t* potential_channel = &com_channels[c];
+        if (potential_channel->state == CHANNEL_CONNECTED) {
+            if (potential_channel->owner->id == current_task->id &&
+                potential_channel->partner->id == with_pid) {
                 *channel_id = c; // remind them they already have this one
+                channel = potential_channel;
                 channel_spin_unlock_unsafe(c);
-                global_channel_spin_unlock(saved_irq);
-                return KELP_OK;
+                break;
             }
         }
         channel_spin_unlock_unsafe(c);
     }
 
-
-    // check for free channels
-    for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
-        channel_spin_lock_unsafe(c);
-        if (com_channels[c].state == CHANNEL_FREE) {
-            channel = &com_channels[c];
-            *channel_id = c;
+    if (channel == NULL) {
+        // check for free channels
+        for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
+            channel_spin_lock_unsafe(c);
+            if (com_channels[c].state == CHANNEL_FREE) {
+                channel = &com_channels[c];
+                *channel_id = c;
+                channel_spin_unlock_unsafe(c);
+                break;
+            }
             channel_spin_unlock_unsafe(c);
-            break;
         }
-        channel_spin_unlock_unsafe(c);
     }
 
     // if there are none, return

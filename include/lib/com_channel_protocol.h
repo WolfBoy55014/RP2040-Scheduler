@@ -20,6 +20,7 @@
 #define COM_TYPE_STR_I  8   // channel contains a char[] (initial packet)
 #define COM_TYPE_STR_D  9   // channel contains a char[] (data packets)
 #define COM_TYPE_ARRAY  10  // channel contains a char[] but faster
+#define COM_TYPE_ERROR  11  // channel contains an error code
 #define COM_TYPE_REQ    0   // channel contains a request id
 
 /**
@@ -213,6 +214,24 @@ kelp_error_t com_send_request(uint16_t channel_id, uint16_t request);
 kelp_error_t com_get_request(uint16_t channel_id, uint16_t* request);
 
 /**
+ * A non-blocking way to report an error over the channels \n
+ * This is used if the "provider/service" experiences an error, \n
+ * and needs to tell the "client". \n
+ * @param channel_id ID of the channel to send data on
+ * @param error_code the error code for the error the "provider" experienced.
+ * @return an error code
+ */
+kelp_error_t com_send_error(uint16_t channel_id, kelp_error_t error_code);
+
+/**
+ * A non-blocking way to check for errors on a channel
+ * @param channel_id ID of the channel to check
+ * @param error_code the error code stored on the channel. KELP_OK if there are none
+ * @return an error code
+ */
+kelp_error_t com_check_for_error(uint16_t channel_id, kelp_error_t* error_code);
+
+/**
  * A blocking way to send an unsigned integer over the channels
  * @param channel_id ID of the channel to send data on
  * @param data the uint32_t to be sent
@@ -401,5 +420,23 @@ kelp_error_t com_send_request_blocking(uint16_t channel_id, uint16_t request);
  * @return a negative error code, or a positive result
  */
 kelp_error_t com_get_request_blocking(uint16_t channel_id, uint16_t* request);
+
+/**
+ * A blocking way to report an error over the channels \n
+ * This is used if the "provider/service" experiences an error, \n
+ * and needs to tell the "client". \n
+ * @param channel_id ID of the channel to send data on
+ * @param error_code the error code for the error the "provider" experienced.
+ * @return an error code
+ */
+kelp_error_t com_send_error_blocking(uint16_t channel_id, kelp_error_t error_code);
+
+/**
+ * A blocking way to check for errors on a channel
+ * @param channel_id ID of the channel to check
+ * @param error_code the error code stored on the channel. KELP_OK if there are none
+ * @return an error code
+ */
+kelp_error_t com_check_for_error_blocking(uint16_t channel_id, kelp_error_t* error_code);
 
 #endif //KELPOS_LITE_COM_CHANNEL_PROTOCOL_H

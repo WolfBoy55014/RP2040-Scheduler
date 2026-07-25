@@ -42,10 +42,7 @@ kelp_error_t com_get_uint32(const uint16_t channel_id, uint32_t* data, uint16_t*
     uint16_t bytes_read = 0;
 
     kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_UINT32) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -93,10 +90,7 @@ kelp_error_t com_get_int32(const uint16_t channel_id, int32_t* data, uint16_t* r
     uint16_t bytes_read = 0;
 
     kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_INT32) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -148,10 +142,7 @@ kelp_error_t com_get_uint64(const uint16_t channel_id, uint64_t* data, uint16_t*
     uint16_t bytes_read = 0;
 
     kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_UINT64) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -212,10 +203,7 @@ kelp_error_t com_get_int64(const uint16_t channel_id, int64_t* data, uint16_t* r
     uint16_t bytes_read = 0;
 
     kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_INT64) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -279,10 +267,7 @@ kelp_error_t com_get_float(const uint16_t channel_id, float* data, uint16_t* rea
     uint16_t bytes_read = 0;
 
     kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 7);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_FLO) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -340,11 +325,8 @@ kelp_error_t com_get_double(const uint16_t channel_id, double* data, uint16_t* r
     uint8_t bytes[11];
     uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 11);
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_DUB) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -388,11 +370,8 @@ kelp_error_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reaso
     uint8_t bytes[4];
     uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 4);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 4);
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_CHAR) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -499,10 +478,7 @@ kelp_error_t com_get_char_array(uint16_t channel_id, char* data, uint32_t max_si
     uint16_t initial_packet_size = 0;
 
     kelp_error_t error = com_channel_read(channel_id, initial_packet, &initial_packet_size, CHANNEL_SIZE);
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (initial_packet[0] != COM_TYPE_STR_I) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -601,10 +577,7 @@ kelp_error_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHA
 
     kelp_error_t error = com_channel_read(channel_id, bytes, size, CHANNEL_SIZE);
     *size -= 3;
-    if (error != KELP_OK) {
-        // there was an error
-        return error;
-    }
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_ARRAY) {
         return KELP_WRONG_TYPE; // wrong data type
@@ -644,19 +617,56 @@ kelp_error_t com_get_request(const uint16_t channel_id, uint16_t* request) {
     uint8_t bytes[3];
     uint16_t bytes_read = 0;
 
-    int32_t error = com_channel_read(channel_id, bytes, &bytes_read, 3);
-    if (error < 0) {
-        // there was an error
-        return error;
-    }
+    kelp_error_t error = com_channel_read(channel_id, bytes, &bytes_read, 3);
+    KELP_RETURN_ON_ERROR(error);
 
     if (bytes[0] != COM_TYPE_REQ) {
-        return -4; // wrong data type
+        return KELP_WRONG_TYPE; // wrong data type
     }
 
     *request = bytes[1] << 8 | bytes[2];
 
-    return 0;
+    return KELP_OK;
+}
+
+kelp_error_t com_send_error(const uint16_t channel_id, const kelp_error_t error_code) {
+
+    if (!is_channel_ready_to_write(channel_id)) {
+        return KELP_CHANNEL_FULL;
+    }
+
+    uint8_t bytes[5];
+    bytes[0] = COM_TYPE_ERROR;
+    memcpy(&bytes[1], &error_code, 4);
+
+    kelp_error_t error = com_channel_write(channel_id, bytes, 5);
+    return error;
+}
+
+kelp_error_t com_check_for_error(const uint16_t channel_id, kelp_error_t* error_code) {
+
+    if (!is_channel_ready_to_read(channel_id)) {
+        return KELP_CHANNEL_EMPTY; // channel empty
+    }
+
+    uint8_t type;
+    kelp_error_t error = com_channel_peek(channel_id, &type);
+    KELP_RETURN_ON_ERROR(error);
+
+    if (type != COM_TYPE_ERROR) {
+        *error_code = KELP_OK;
+        return KELP_OK; // no error
+    }
+
+    uint8_t bytes[5];
+    uint16_t bytes_read = 0;
+
+    error = com_channel_read(channel_id, bytes, &bytes_read, 5);
+    KELP_RETURN_ON_ERROR(error);
+
+    memcpy(error_code, &bytes[1], 4);
+
+    return KELP_OK;
 }
 
 kelp_error_t com_send_uint32_blocking(uint16_t channel_id, uint32_t data, uint16_t reason) {
@@ -777,4 +787,16 @@ kelp_error_t com_get_request_blocking(uint16_t channel_id, uint16_t* request) {
     com_channel_wait_until_readable(channel_id);
 
     return com_get_request(channel_id, request);
+}
+
+kelp_error_t com_send_error_blocking(const uint16_t channel_id, const kelp_error_t error_code) {
+    com_channel_wait_until_writable(channel_id);
+
+    return com_send_error(channel_id, error_code);
+}
+
+kelp_error_t com_check_for_error_blocking(const uint16_t channel_id, kelp_error_t* error_code) {
+    com_channel_wait_until_readable(channel_id);
+
+    return com_check_for_error(channel_id, error_code);
 }

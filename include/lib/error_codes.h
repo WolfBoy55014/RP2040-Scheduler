@@ -5,10 +5,7 @@
 #ifndef KELPOS_LITE_ERROR_CODES_H
 #define KELPOS_LITE_ERROR_CODES_H
 
-// TODO: Apply to channel functions
-// TODO: Apply to protocol functions
-// TODO: Apply to scheduler functions
-// TODO: Apply to service functions
+
 typedef enum : int32_t {
     KELP_OK = 0,
     KELP_ERROR = -1,
