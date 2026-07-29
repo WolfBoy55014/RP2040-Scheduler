@@ -9,6 +9,8 @@
 .extern get_current_task
 .extern get_next_task
 .extern hard_fault_handler_c
+.extern scheduler_spin_lock
+.extern scheduler_spin_unlock
 
 .global _cpsid
 .type _cpsid, %function
@@ -56,7 +58,8 @@ priviliged_true:
 .type PendSV_Handler, %function
 
 PendSV_Handler:
-    cpsid i                 // disable interrupts
+    blx scheduler_spin_lock // aquire spinlock
+    mov r3, r0              // save interrupts to r3 (I love you r3 ♡)
 
     blx scheduler_is_started // get whether this core's scheduler is started or not
 
@@ -109,7 +112,8 @@ first_context_switch:       // skip here if this is the first time running, as t
 
     isb
 
-    cpsie i                 // enable interrupts again
+    mov r0, r3              // grab saved interrupts
+    blx scheduler_spin_unlock   // release spinlock
 
     ldr r0, =0xFFFFFFFD     // load `0xFFFFFFFD` (special address to tell cpu to go back to process mode)
     bx r0                   // and go there, exiting

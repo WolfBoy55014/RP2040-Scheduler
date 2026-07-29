@@ -367,7 +367,6 @@ void scheduler_garbage_collect() {
 // TODO: optimize by making it so it only has to loop through existing tasks, not all possible tasks
 __attribute__((noinline))
 void get_next_task() {
-    const uint32_t saved_irq = scheduler_spin_lock();
 
 #if PRINT
     uint32_t start_time = time_us_32();
@@ -446,8 +445,6 @@ void get_next_task() {
 #if CPU_FANCY_USAGE_MONITORING
     scheduler->loop_start_us = time_us_32();
 #endif
-
-    scheduler_spin_unlock(saved_irq);
 }
 
 // Called from the HardFault_Handler trampoline in context.s with a pointer to the
