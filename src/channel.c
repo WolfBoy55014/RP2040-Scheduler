@@ -225,6 +225,7 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
                 *channel_id = c; // remind them they already have this one
                 channel = potential_channel;
                 channel_spin_unlock_unsafe(c);
+                // TODO: clearing an already-existing channel breaks some parts of the text service
                 break;
             }
         }
