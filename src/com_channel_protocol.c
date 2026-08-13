@@ -333,7 +333,7 @@ kelp_error_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reaso
     return KELP_OK;
 }
 
-kelp_error_t com_send_char_array(const uint16_t channel_id, const char data[], uint32_t size, const uint16_t reason) {
+kelp_error_t com_send_char_array(const uint16_t channel_id, const char *data, uint32_t size, const uint16_t reason) {
 
     // initial packet shape:
     // | Type (8) | Reason (16) | Total Size (32) | Num Packets (16) |
@@ -657,7 +657,7 @@ kelp_error_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* re
     return com_get_char(channel_id, data, reason);
 }
 
-kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason) {
+kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char *data, uint32_t size, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
     return com_send_char_array(channel_id, data, size, reason);

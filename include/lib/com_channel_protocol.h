@@ -159,7 +159,7 @@ kelp_error_t com_get_char(uint16_t channel_id, char* data, uint16_t* reason);
  * @param reason an unsigned short sharing the purpose of the data, so the receiver knows what the data is for
  * @return a negative error code, or a positive result
  */
-kelp_error_t com_send_char_array(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason);
+kelp_error_t com_send_char_array(uint16_t channel_id, const char *data, uint32_t size, uint16_t reason);
 
 /**
  * A non-blocking way to receive an arbitrarily long "string" over the channels
@@ -367,7 +367,7 @@ kelp_error_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* re
  * @param reason an unsigned short sharing the purpose of the data, so the receiver knows what the data is for
  * @return a negative error code, or a positive result
  */
-kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char data[], uint32_t size, uint16_t reason);
+kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char *data, uint32_t size, uint16_t reason);
 
 /**
  * A blocking way to receive an arbitrarily long "string" over the channels
