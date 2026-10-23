@@ -17,7 +17,7 @@ typedef enum : int32_t {
     KELP_CHANNEL_EMPTY = -7,
     KELP_CHANNEL_FULL = -8,
     KELP_TOO_BIG = -9,
-    KELP_INVALID_ID = -10,
+    KELP_INVALID = -10,
     KELP_NO_TASK = -11,
     KELP_NOT_OWNER = -12,
     KELP_UNALLOCATED = -13,
@@ -27,8 +27,12 @@ typedef enum : int32_t {
     KELP_WRONG_REASON = -17,
     KELP_IO = -18,
     KELP_NO_EXIST = -19,
-    KELP_BUSY = -20,
-    KELP_NOT_SUPPORTED = -21,
+    KELP_EXISTS = -20,
+    KELP_BUSY = -21,
+    KELP_DENIED = -22,
+    KELP_PROTECTED = -23,
+    KELP_CORRUPT = -24,
+    KELP_LOCKED = -25,
 } kelp_error_t;
 
 #define KELP_RETURN_ON_ERROR(error) if ((error) != KELP_OK) {return (error);}

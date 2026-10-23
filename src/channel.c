@@ -193,7 +193,7 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
     task_t* current_task = get_current_task();
     if (current_task->id == with_pid) {
         scheduler_spin_unlock(saved_irq);
-        return KELP_INVALID_ID;
+        return KELP_INVALID;
     }
 
     // find task with specified pid
@@ -212,7 +212,7 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
     // if we could not find the task with `with_pid` return
     if (with == NULL) {
         global_channel_spin_unlock(saved_irq);
-        return KELP_INVALID_ID;
+        return KELP_INVALID;
     }
 
     // check if a channel already connects these two channels
@@ -299,7 +299,7 @@ kelp_error_t com_channel_free(uint16_t channel_id) {
     if (channel_id >= NUM_CHANNELS) {
         channel_spin_unlock_unsafe(channel_id);
         global_channel_spin_unlock(saved_irq);
-        return KELP_INVALID_ID;
+        return KELP_INVALID;
     }
 
     // check if the current task is owner of the channel
