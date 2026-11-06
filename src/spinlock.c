@@ -23,6 +23,10 @@ void spin_locks_init() {
     spin_lock_channel = spin_lock_init(CHANNEL_SPINLOCK_ID);
 }
 
+// ---------------------------+
+// Scheduler Spinlock Functions
+// ---------------------------+
+
 #if CORE_COUNT > 1
 inline bool scheduler_spin_locked() {
     return is_spin_locked(spin_lock_scheduler);
@@ -44,6 +48,10 @@ inline void scheduler_spin_unlock_unsafe() {
     spin_unlock_unsafe(spin_lock_scheduler);
 }
 
+// ---------------------------+
+// Global Channel Spinlock Functions
+// ---------------------------+
+
 inline bool global_channel_spin_locked() {
     return is_spin_locked(spin_lock_channel);
 }
@@ -63,6 +71,10 @@ inline void global_channel_spin_unlock(const uint32_t irqs) {
 inline void global_channel_spin_unlock_unsafe() {
     spin_unlock_unsafe(spin_lock_channel);
 }
+
+// ---------------------------+
+// Channel Spinlock Functions
+// ---------------------------+
 
 inline spin_lock_t *get_channel_spin_lock(uint16_t channel_id) {
     return channel_spin_locks[channel_id % NUM_CHANNEL_SPINLOCKS];

@@ -43,10 +43,4 @@ kelp_error_t channel_garbage_collect();
 
 kelp_error_t init_channels();
 
-bool is_owner_of_channel_no_lock(uint16_t channel_id);
-
-bool is_connected_to_channel_no_lock(uint16_t channel_id);
-
-kelp_error_t get_connected_channels_no_lock(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size);
-
 #endif //CHANNEL_INTERNAL_H

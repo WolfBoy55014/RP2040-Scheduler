@@ -13,21 +13,21 @@
 #define CHANNEL_BLOCKING_TIMEOUT_MS 1000
 
 /**
- * @brief Check if the current task owns a channel or not
+ * Check if the current task owns a channel or not
  * @param channel_id ID of the channel
- * @return Either or not the current task owns this channel
+ * @return True if the current task owns this channel
  */
 bool is_owner_of_channel(uint16_t channel_id);
 
 /**
- * @brief Check if current task is connected to a channel or not
+ * Check if current task is connected to a channel or not
  * @param channel_id ID of the channel
- * @return either or not the task is connected to a channel
+ * @return True if the task is connected to a channel
  */
 bool is_connected_to_channel(uint16_t channel_id);
 
 /**
- * @brief Get which channels are connected to the current task
+ * Get which channels are connected to the current task
  * @param channel_ids Array to populate with connected channel ids
  * @param num_connected Pointer to save the number of connected channels to
  * @param size Length of @code channel_ids@endcode array
@@ -36,14 +36,14 @@ bool is_connected_to_channel(uint16_t channel_id);
 kelp_error_t get_connected_channels(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size);
 
 /**
- * @breif Get the PID of the task on the other side of the channel
+ * Get the PID of the task on the other side of the channel
  * @param channel_id ID of the channel
  * @return The PID of the task on the other side of the channel
  */
 uint32_t get_channel_partner_pid(uint16_t channel_id);
 
 /**
- * @brief Request to be connected to the task with pid @code with_pid@endcode.
+ * Request to be connected to the task with pid @code with_pid@endcode.
  * If there is a free communication channel,
  * a channel will be allocated and connected to the current task and task @code with_pid@endcode.
  * The current task will become the owner of the channel.
@@ -57,7 +57,7 @@ uint32_t get_channel_partner_pid(uint16_t channel_id);
 kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* channel_id);
 
 /**
- * @brief Request to be connected to the task with pid @code with_pid@endcode, blocking until a channel is free
+ * Request to be connected to the task with pid @code with_pid@endcode, blocking until a channel is free
  * If there is a free communication channel,
  * a channel will be allocated and connected to the current task and task @code with_pid@endcode.
  * The current task will become the owner of the channel.
@@ -71,21 +71,21 @@ kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* cha
 kelp_error_t com_channel_request_blocking(uint32_t with_pid, bool autoFree, uint16_t* channel_id);
 
 /**
- * @brief Disconnect and free a communication channel
+ * Disconnect and free a communication channel
  * @param channel_id ID if the channel to free
  * @return An error code
  */
 kelp_error_t com_channel_free(uint16_t channel_id);
 
 /**
- * @brief Check if channel is empty and ready to write to
+ * Check if channel is empty and ready to write to
  * @param channel_id ID of channel
  * @return Either or not the channel is empty and ready to write to
  */
 bool is_channel_ready_to_write(uint16_t channel_id);
 
 /**
- * @brief Write a buffer of data to a channel
+ * Write a buffer of data to a channel
  * @param channel_id ID of the channel to write to
  * @param bytes Array of data to write
  * @param size The length of @code bytes@endcode
@@ -94,7 +94,7 @@ bool is_channel_ready_to_write(uint16_t channel_id);
 kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
 
 /**
- * @brief Write a buffer of data to a channel, but will block until data can be written
+ * Write a buffer of data to a channel, but will block until data can be written
  * @param channel_id ID of the channel to write to
  * @param bytes Array of data to write
  * @param size The length of @code bytes@endcode
@@ -103,14 +103,14 @@ kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16
 kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* bytes, uint16_t size);
 
 /**
- * @brief Check if channel has data ready to read
+ * Check if channel has data ready to read
  * @param channel_id ID of channel
  * @return Either or not the channel full of new data
  */
 bool is_channel_ready_to_read(uint16_t channel_id);
 
 /**
- * @brief Read the data from a channel and copy it to a provided buffer
+ * Read the data from a channel and copy it to a provided buffer
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
  * @param read A pointer to save the amount of data read to
@@ -120,7 +120,7 @@ bool is_channel_ready_to_read(uint16_t channel_id);
 kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size);
 
 /**
- * @brief Read the data from a channel and copy it to a provided buffer, but will block until data can be read
+ * Read the data from a channel and copy it to a provided buffer, but will block until data can be read
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
  * @param read A pointer to save the amount of data read to
@@ -130,7 +130,7 @@ kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* re
 kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size);
 
 /**
- * @brief Read the data from a channel and copy it to a provided buffer without clearing the channel after
+ * Read the data from a channel and copy it to a provided buffer without clearing the channel after
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
  * @param read A pointer to save the amount of data read to
@@ -148,8 +148,16 @@ kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uin
  */
 kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte);
 
+/**
+ * Wait until a channel is ready to be written to, or CHANNEL_BLOCKING_TIMEOUT_MS has passed
+ * @param channel_id Id of the channel to wait for
+ */
 void com_channel_wait_until_writable(uint16_t channel_id);
 
+/**
+ * Wait until a channel is ready to be read from, or CHANNEL_BLOCKING_TIMEOUT_MS has passed
+ * @param channel_id ID of the channel to wait for
+ */
 void com_channel_wait_until_readable(uint16_t channel_id);
 
 #endif //CHANNEL_H

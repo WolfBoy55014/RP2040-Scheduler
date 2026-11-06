@@ -14,6 +14,10 @@
 
 com_channel_t com_channels[NUM_CHANNELS];
 
+// ---------------------------+
+// Internal Maintenance
+// ---------------------------+
+
 kelp_error_t channel_garbage_collect() {
     // go through all the channels,
     // and check if they can be automatically removed
@@ -81,7 +85,11 @@ kelp_error_t init_channels() {
     return KELP_OK;
 }
 
-bool is_owner_of_channel_no_lock(const uint16_t channel_id) {
+// ---------------------------+
+// Connection Checking
+// ---------------------------+
+
+static bool is_owner_of_channel_no_lock(const uint16_t channel_id) {
     if (channel_id >= NUM_CHANNELS) {
         return false;
     }
@@ -108,7 +116,7 @@ bool is_owner_of_channel(const uint16_t channel_id) {
     return is_owner;
 }
 
-bool is_connected_to_channel_no_lock(const uint16_t channel_id) {
+static bool is_connected_to_channel_no_lock(const uint16_t channel_id) {
     if (channel_id >= NUM_CHANNELS) {
         return false;
     }
@@ -136,7 +144,7 @@ bool is_connected_to_channel(const uint16_t channel_id) {
     return is_connected;
 }
 
-kelp_error_t get_connected_channels_no_lock(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size) {
+static kelp_error_t get_connected_channels_no_lock(uint16_t* channel_ids, uint16_t* num_connected, uint16_t size) {
     *num_connected = 0;
 
     for (uint16_t c = 0; c < NUM_CHANNELS; c++) {
@@ -182,6 +190,10 @@ uint32_t get_channel_partner_pid(uint16_t channel_id) {
     channel_spin_unlock(channel_id, saved_irq);
     return 0;
 }
+
+// ---------------------------+
+// Channel Acquisition
+// ---------------------------+
 
 kelp_error_t com_channel_request(uint32_t with_pid, bool autoFree, uint16_t* channel_id) {
     const uint32_t saved_irq = scheduler_spin_lock();
@@ -337,6 +349,10 @@ kelp_error_t com_channel_free(uint16_t channel_id) {
     return KELP_OK;
 }
 
+// ---------------------------+
+// Channel Writing
+// ---------------------------+
+
 bool is_channel_ready_to_write(const uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock(channel_id);
 
@@ -407,6 +423,10 @@ kelp_error_t com_channel_write_blocking(uint16_t channel_id, const uint8_t* byte
 
     return com_channel_write(channel_id, bytes, size);
 }
+
+// ---------------------------+
+// Channel Reading
+// ---------------------------+
 
 bool is_channel_ready_to_read(const uint16_t channel_id) {
     const uint32_t saved_irq = channel_spin_lock(channel_id);
@@ -560,6 +580,10 @@ kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
     channel_spin_unlock(channel_id, saved_irq);
     return KELP_OK;
 }
+
+// ---------------------------+
+// Blocking Functions
+// ---------------------------+
 
 void com_channel_wait_until_writable(uint16_t channel_id) {
     if (!is_connected_to_channel(channel_id)) {

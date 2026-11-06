@@ -102,13 +102,9 @@ extern bool is_privileged();
 scheduler_t *get_scheduler();
 task_t *get_current_task();
 
-void scheduler_start_this_core();
 bool scheduler_is_started();
-void set_scheduler_started(bool started);
 
-void get_next_task();
 void scheduler_raise_pendsv();
-void refresh_systick_on_clock_change();
 void refresh_systick_all_cores();
 
 /**
@@ -124,6 +120,8 @@ uint8_t get_core_usage(uint8_t core_num);
  * @param signals the signals
  */
 void task_set_signals(uint32_t pid, uint32_t signals);
+
+// TODO: name these better ^^^ vvv
 
 /**
  * Get the signals being sent to a task

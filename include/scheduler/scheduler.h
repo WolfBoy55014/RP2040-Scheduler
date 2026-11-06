@@ -57,7 +57,7 @@ kelp_error_t task_request_stack(uint32_t stack_size);
  */
 kelp_error_t task_stack_fit_buffer(uint32_t headroom, uint32_t buffer_bytes, bool shrink);
 
-void task_end(int32_t code);
+void task_end(int32_t code); // TODO: Replace with returning an int the normal way
 
 /**
  * Check if a task with a certain id exists

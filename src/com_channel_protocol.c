@@ -12,6 +12,10 @@
 #include  "error_codes.h"
 #include "hardware/timer.h"
 
+// ---------------------------+
+// Numbers
+// ---------------------------+
+
 kelp_error_t com_send_uint32(const uint16_t channel_id, const uint32_t data, const uint16_t reason) {
 
     uint8_t bytes[7];
@@ -333,6 +337,10 @@ kelp_error_t com_get_char(const uint16_t channel_id, char* data, uint16_t* reaso
     return KELP_OK;
 }
 
+// ---------------------------+
+// Arrays/ Buffers
+// ---------------------------+
+
 kelp_error_t com_send_char_array(const uint16_t channel_id, const char *data, uint32_t size, const uint16_t reason) {
 
     // initial packet shape:
@@ -512,6 +520,10 @@ kelp_error_t com_get_char_array_fast(const uint16_t channel_id, char (*data)[CHA
     return KELP_OK;
 }
 
+// ---------------------------+
+// Miscellaneous
+// ---------------------------+
+
 kelp_error_t com_send_request(const uint16_t channel_id, const uint16_t request) {
 
     uint8_t bytes[3];
@@ -572,6 +584,10 @@ kelp_error_t com_check_for_error(const uint16_t channel_id, kelp_error_t* error_
 
     return KELP_OK;
 }
+
+// ---------------------------+
+// Numbers
+// ---------------------------+
 
 kelp_error_t com_send_uint32_blocking(uint16_t channel_id, uint32_t data, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
@@ -657,6 +673,10 @@ kelp_error_t com_get_char_blocking(uint16_t channel_id, char* data, uint16_t* re
     return com_get_char(channel_id, data, reason);
 }
 
+// ---------------------------+
+// Arrays/ Buffers
+// ---------------------------+
+
 kelp_error_t com_send_char_array_blocking(uint16_t channel_id, const char *data, uint32_t size, uint16_t reason) {
     com_channel_wait_until_writable(channel_id);
 
@@ -680,6 +700,10 @@ kelp_error_t com_get_char_array_fast_blocking(uint16_t channel_id, char (*data)[
 
     return com_get_char_array_fast(channel_id, data, size, reason);
 }
+
+// ---------------------------+
+// Miscellaneous
+// ---------------------------+
 
 kelp_error_t com_send_request_blocking(uint16_t channel_id, uint16_t request) {
     com_channel_wait_until_writable(channel_id);

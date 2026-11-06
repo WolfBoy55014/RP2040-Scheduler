@@ -11,7 +11,6 @@
 #include "hardware/clocks.h"
 #include "hardware/timer.h"
 #include "hardware/uart.h"
-#include "pico/stdio.h"
 
 const uint32_t governor_frequencies[] = GOVERNOR_FREQUENCIES;
 const enum vreg_voltage governor_voltages[] = GOVERNOR_VOLTAGES;
@@ -44,6 +43,27 @@ uint8_t governor_get_mode() {
     return current_power_mode;
 }
 
+static void update_periferals(uint32_t peri_clock_freq) {
+    // recalculate uart baud
+    if (uart_is_enabled(uart0)) {
+        uint32_t baud_ibrd = uart_get_hw(uart0)->ibrd;
+        uint32_t baud_fbrd = uart_get_hw(uart0)->fbrd;
+        // See datasheet
+        uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
+        uart_tx_wait_blocking(uart0);
+        uart_set_baudrate(uart0, baud);
+    }
+
+    if (uart_is_enabled(uart1)) {
+        uint32_t baud_ibrd = uart_get_hw(uart1)->ibrd;
+        uint32_t baud_fbrd = uart_get_hw(uart1)->fbrd;
+        // See datasheet
+        uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
+        uart_tx_wait_blocking(uart1);
+        uart_set_baudrate(uart1, baud);
+    }
+}
+
 void governor_init() {
     current_power_mode = GOVERNOR_BALANCED;
     target_utilization = GOVERNOR_TARGET_BALANCED;
@@ -58,24 +78,7 @@ void governor_init() {
         // This is *very* good, but we need to re-calculate clock dividers
         // for peripherals
 
-        // recalculate uart baud
-        if (uart_is_enabled(uart0)) {
-            uint32_t baud_ibrd = uart_get_hw(uart0)->ibrd;
-            uint32_t baud_fbrd = uart_get_hw(uart0)->fbrd;
-            // See datasheet
-            uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
-            uart_tx_wait_blocking(uart0);
-            uart_set_baudrate(uart0, baud);
-        }
-
-        if (uart_is_enabled(uart1)) {
-            uint32_t baud_ibrd = uart_get_hw(uart1)->ibrd;
-            uint32_t baud_fbrd = uart_get_hw(uart1)->fbrd;
-            // See datasheet
-            uint32_t baud = (4 * peri_clock_freq) / (64 * baud_ibrd + baud_fbrd);
-            uart_tx_wait_blocking(uart1);
-            uart_set_baudrate(uart1, baud);
-        }
+        update_periferals(peri_clock_freq);
     }
 }
 
