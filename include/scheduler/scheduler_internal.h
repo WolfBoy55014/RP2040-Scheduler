@@ -44,7 +44,7 @@ typedef struct {
     uint32_t requested_stack_size;
 
     // --- State Properties ---
-    volatile task_state_t state;         // State of the task
+    volatile task_state_t state;// State of the task
     absolute_time_t resume_us;  // When the task will be done sleeping (in absolute time)
 
     // --- System Usage Properties ---
@@ -62,7 +62,7 @@ typedef struct {
 } task_t;
 
 typedef struct {
-    task_t *current_task;
+    task_t* current_task;
     uint32_t current_task_index;
     uint32_t started;
 #if CPU_FANCY_USAGE_MONITORING

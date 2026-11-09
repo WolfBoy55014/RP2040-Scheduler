@@ -51,12 +51,12 @@ void heap_dump() {
 // ---------------------------+
 
 __attribute__((noinline))
-scheduler_t* get_scheduler() {
+scheduler_t *get_scheduler() {
     return &schedulers[CORE_NUM];
 }
 
 __attribute__((noinline))
-task_t* get_current_task() {
+task_t *get_current_task() {
     scheduler_t* scheduler = get_scheduler();
     return scheduler->current_task;
 }
@@ -175,12 +175,12 @@ static void start_systick() {
     systick_hw->rvr = ticks - 1; // set ticks until fire
     systick_hw->cvr = 0; // clear current value
     systick_hw->csr = M0PLUS_SYST_CSR_CLKSOURCE_BITS | // use system clock
-        M0PLUS_SYST_CSR_TICKINT_BITS | // enable interrupt
-        M0PLUS_SYST_CSR_ENABLE_BITS; // enable SysTick
+                      M0PLUS_SYST_CSR_TICKINT_BITS | // enable interrupt
+                      M0PLUS_SYST_CSR_ENABLE_BITS; // enable SysTick
 }
 
 void scheduler_raise_pendsv() {
-    (*(volatile uint32_t *)(PPB_BASE + M0PLUS_ICSR_OFFSET)) |= M0PLUS_ICSR_PENDSVSET_BITS;
+    (*(volatile uint32_t *) (PPB_BASE + M0PLUS_ICSR_OFFSET)) |= M0PLUS_ICSR_PENDSVSET_BITS;
 }
 
 #if CORE_COUNT > 1
@@ -205,8 +205,7 @@ static void remove_task(task_t* task) {
     // the stack from another core while it is still running
     if (task->state == TASK_RUNNING) {
         task->state = TASK_ZOMBIE;
-    }
-    else {
+    } else {
         task->state = TASK_DEAD;
         num_tasks--;
     }
@@ -286,8 +285,7 @@ static void calculate_cpu_usage() {
 
         if (us_executing <= 0) {
             scheduler->core_usage = 0;
-        }
-        else {
+        } else {
             scheduler->core_usage = ((us_executing - us_idling) * 100) / us_executing;
         }
 
@@ -395,8 +393,7 @@ static void calculate_stack_usage() {
             // remember, the ARM stack grows downwards!
             if (task->stack[i] == STACK_FILLER) {
                 stack_unused++;
-            }
-            else {
+            } else {
 #if OPTIMIZE_STACK_MONITORING
                 task->stack_hwm = i - 1;
 #endif
@@ -420,8 +417,7 @@ static void calculate_stack_usage() {
 #if DYNAMIC_STACK
             if (task->stack_size < MAX_STACK_SIZE) {
                 resize_stack(task, task->stack_size + STACK_STEP_SIZE);
-            }
-            else {
+            } else {
                 task->state = TASK_SUSPENDED;
             }
 #else
@@ -484,7 +480,6 @@ static void scheduler_garbage_collect() {
 // TODO: optimize by making it so it only has to loop through existing tasks, not all possible tasks
 __attribute__((noinline))
 void get_next_task() {
-
 #if PRINT
     uint32_t start_time = time_us_32();
 #endif
@@ -585,13 +580,13 @@ void get_next_task() {
 // for lr) to map these addresses back to real source lines.
 __attribute__((noinline))
 void hard_fault_handler_c(uint32_t* fault_stack) {
-    const uint32_t r0  = fault_stack[0];
-    const uint32_t r1  = fault_stack[1];
-    const uint32_t r2  = fault_stack[2];
-    const uint32_t r3  = fault_stack[3];
+    const uint32_t r0 = fault_stack[0];
+    const uint32_t r1 = fault_stack[1];
+    const uint32_t r2 = fault_stack[2];
+    const uint32_t r3 = fault_stack[3];
     const uint32_t r12 = fault_stack[4];
-    const uint32_t lr  = fault_stack[5];
-    const uint32_t pc  = fault_stack[6];
+    const uint32_t lr = fault_stack[5];
+    const uint32_t pc = fault_stack[6];
     const uint32_t psr = fault_stack[7];
 
     uint32_t task_id = 0xFFFFFFFF;
@@ -615,7 +610,7 @@ void hard_fault_handler_c(uint32_t* fault_stack) {
     printf("  R12: 0x%08lx\n", r12);
     if (task_stack_base) {
         printf("  Task stack: top=%p base=%p faulted_sp=%p\n",
-               task_stack_top, task_stack_base, (void*)fault_stack);
+               task_stack_top, task_stack_base, (void *) fault_stack);
     }
     printf("!!! Anything below this in an IDE call-stack view past PC/LR above\n");
     printf("!!! is heuristic unwinding and may not be trustworthy.\n\n");
@@ -768,7 +763,7 @@ kelp_error_t kernel_start() {
 
 __attribute__((noinline))
 kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), const uint32_t id, char* args,
-                      const uint8_t priority) {
+                           const uint8_t priority) {
     // Acquire lock for initial checks
     const uint32_t saved_irq = scheduler_spin_lock();
 
@@ -824,7 +819,7 @@ kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), co
 #else
     const uint32_t stack_size = STACK_SIZE;
 #endif
-    task->stack = (uint32_t*)malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
+    task->stack = (uint32_t *) malloc(stack_size * sizeof(uint32_t)); // dynamically get stack from heap
 
     if (task->stack == NULL) {
         return KELP_MEMORY;
@@ -847,7 +842,7 @@ kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), co
     // insert arguments
     uint32_t args_size = strlen(args) + 1;
     uint32_t args_size_uint32 = (args_size + 3) / 4;
-    char* args_in_stack = (char*)(task->stack_base - args_size_uint32);
+    char* args_in_stack = (char *) (task->stack_base - args_size_uint32);
 
     args_in_stack[args_size] = '\0';
     for (uint32_t i = 0; i < args_size; i++) {
@@ -857,14 +852,14 @@ kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), co
     task->stack_pointer -= args_size_uint32 + 1;
 
     // set up initial stack frame for context switching
-    *(task->stack_pointer--) = (uint32_t)0x01000000; // PSR (Thumb bit set)
-    *(task->stack_pointer--) = (uint32_t)task_function; // PC (where to start)
-    *(task->stack_pointer--) = (uint32_t)task_return; // LR (return address)
+    *(task->stack_pointer--) = (uint32_t) 0x01000000; // PSR (Thumb bit set)
+    *(task->stack_pointer--) = (uint32_t) task_function; // PC (where to start)
+    *(task->stack_pointer--) = (uint32_t) task_return; // LR (return address)
     *(task->stack_pointer--) = 12; // R12
     *(task->stack_pointer--) = args_size; // R3
-    *(task->stack_pointer--) = (uint32_t)args_in_stack; // R2 (pointer to args)
+    *(task->stack_pointer--) = (uint32_t) args_in_stack; // R2 (pointer to args)
     // TODO: passing a pointer to a value in the task struct prevents MPU usage
-    *(task->stack_pointer--) = (uint32_t)&task->signals; // R1 (pass signals to task)
+    *(task->stack_pointer--) = (uint32_t) &task->signals; // R1 (pass signals to task)
     *(task->stack_pointer--) = task->id; // R0 (pass id to task)
 
     // I'm leaving these here as a testimony of frustration

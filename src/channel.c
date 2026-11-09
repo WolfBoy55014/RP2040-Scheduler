@@ -77,8 +77,8 @@ kelp_error_t init_channels() {
             return KELP_MEMORY;
         }
 
-        channel->fifo_rx.bytes = (uint8_t*) rx_memory;
-        channel->fifo_tx.bytes = (uint8_t*) tx_memory;
+        channel->fifo_rx.bytes = (uint8_t *) rx_memory;
+        channel->fifo_tx.bytes = (uint8_t *) tx_memory;
         channel_spin_unlock_unsafe(c);
     }
     global_channel_spin_unlock(saved_irq);
@@ -366,8 +366,7 @@ bool is_channel_ready_to_write(const uint16_t channel_id) {
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_tx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_rx;
     }
 
@@ -398,8 +397,7 @@ kelp_error_t com_channel_write(uint16_t channel_id, const uint8_t* bytes, uint16
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_tx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_rx;
     }
 
@@ -441,8 +439,7 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_rx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_tx;
     }
 
@@ -468,8 +465,7 @@ kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* re
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_rx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_tx;
     }
 
@@ -515,8 +511,7 @@ kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uin
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_rx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_tx;
     }
 
@@ -556,8 +551,7 @@ kelp_error_t com_channel_peek(uint16_t channel_id, uint8_t* byte) {
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_rx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_tx;
     }
 
@@ -596,8 +590,7 @@ void com_channel_wait_until_writable(uint16_t channel_id) {
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_tx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_rx;
     }
     channel_spin_unlock(channel_id, saved_irq);
@@ -622,8 +615,7 @@ void com_channel_wait_until_readable(uint16_t channel_id) {
 
     if (is_owner_of_channel_no_lock(channel_id)) {
         fifo = &channel->fifo_rx;
-    }
-    else {
+    } else {
         fifo = &channel->fifo_tx;
     }
     channel_spin_unlock(channel_id, saved_irq);

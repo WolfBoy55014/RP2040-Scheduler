@@ -18,7 +18,10 @@
 
 /* Basic Scheduler Functions */
 kelp_error_t kernel_start();
-kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, char* args, uint8_t priority);
+
+kelp_error_t task_add_args(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, char* args,
+                           uint8_t priority);
+
 kelp_error_t task_add(void (*task_function)(uint32_t, uint32_t*, char*), uint32_t id, uint8_t priority);
 
 // task management
