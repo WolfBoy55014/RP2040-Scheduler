@@ -40,16 +40,31 @@ set_spsel: // Do not run in interrupt, or it will break!
 .type is_privileged, %function
 
 is_privileged:
-    mrs r0, msp
-    mov r1, sp
+    mrs     r0, ipsr            // check if in exception handler
+    cmp     r0, #0
+    bne     privileged_true     // branch if in exception handler
 
-    cmp r0, r1
-    beq priviliged_true
+    mrs     r0, control         // read CONTROL register
+    movs    r1, #1
+    ands    r0, r0, r1          // isolate bit 0 (nPRIV)
+    eors    r0, r0, r1          // flip bit: 1 = privileged, 0 = unprivileged
+    bx      lr
 
-    movs r0, #0
+privileged_true:
+    movs r0, #1
     bx lr
 
-priviliged_true:
+.global is_kernel
+.type is_kernel, %function
+
+is_kernel:
+    mrs     r0, ipsr            // check if in exception handler
+    cmp     r0, #0
+    bne     kernel_true     // branch if in exception handler
+    movs r0, #0                 // return false
+    bx lr
+
+kernel_true:
     movs r0, #1
     bx lr
 

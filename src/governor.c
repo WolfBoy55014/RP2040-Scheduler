@@ -43,7 +43,7 @@ uint8_t governor_get_mode() {
     return current_power_mode;
 }
 
-static void update_periferals(uint32_t peri_clock_freq) {
+static void update_peripherals(uint32_t peri_clock_freq) {
     // recalculate uart baud
     if (uart_is_enabled(uart0)) {
         uint32_t baud_ibrd = uart_get_hw(uart0)->ibrd;
@@ -78,7 +78,7 @@ void governor_init() {
         // This is *very* good, but we need to re-calculate clock dividers
         // for peripherals
 
-        update_periferals(peri_clock_freq);
+        update_peripherals(peri_clock_freq);
     }
 }
 

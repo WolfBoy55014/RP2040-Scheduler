@@ -484,7 +484,7 @@ kelp_error_t com_send_char_array_fast(const uint16_t channel_id, const char* dat
         return KELP_TOO_BIG; // array too big, increase channel size, or decrease array size
     }
 
-    uint8_t bytes[packet_size];
+    uint8_t bytes[CHANNEL_SIZE];
 
     bytes[0] = COM_TYPE_ARRAY;
     bytes[1] = reason >> 8;

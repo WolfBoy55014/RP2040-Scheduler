@@ -113,31 +113,31 @@ bool is_channel_ready_to_read(uint16_t channel_id);
  * Read the data from a channel and copy it to a provided buffer
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
- * @param read A pointer to save the amount of data read to
+ * @param bytes_read A pointer to save the amount of data read to
  * @param size Size of the provided buffer
  * @return An error code
  */
-kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size);
+kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size);
 
 /**
  * Read the data from a channel and copy it to a provided buffer, but will block until data can be read
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
- * @param read A pointer to save the amount of data read to
+ * @param bytes_read A pointer to save the amount of data read to
  * @param size Size of the provided buffer
  * @return An error code
  */
-kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size);
+kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size);
 
 /**
  * Read the data from a channel and copy it to a provided buffer without clearing the channel after
  * @param channel_id ID of the channel to read from
  * @param buffer Array to copy data to
- * @param read A pointer to save the amount of data read to
+ * @param bytes_read A pointer to save the amount of data read to
  * @param size Size of the provided buffer
  * @return An error code
  */
-kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size);
+kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size);
 
 /**
  * Preview the first byte of a channel, without resetting it \n

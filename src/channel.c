@@ -94,7 +94,7 @@ static bool is_owner_of_channel_no_lock(const uint16_t channel_id) {
         return false;
     }
 
-    if (is_privileged()) {
+    if (is_kernel()) {
         return true;
     }
 
@@ -121,7 +121,7 @@ static bool is_connected_to_channel_no_lock(const uint16_t channel_id) {
         return false;
     }
 
-    if (is_privileged()) {
+    if (is_kernel()) {
         return true;
     }
 
@@ -452,7 +452,7 @@ bool is_channel_ready_to_read(const uint16_t channel_id) {
     return true;
 }
 
-kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
+kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size) {
     uint32_t saved_irq = channel_spin_lock(channel_id);
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
@@ -474,7 +474,7 @@ kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* re
         return KELP_CHANNEL_EMPTY;
     }
 
-    uint32_t fifo_count = fifo->count;
+    uint16_t fifo_count = fifo->count;
 
     if (size < fifo_count) {
         channel_spin_unlock(channel_id, saved_irq);
@@ -483,7 +483,7 @@ kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* re
 
     memcpy(buffer, fifo->bytes, fifo_count);
 
-    *read = fifo_count;
+    *bytes_read = fifo_count;
     fifo->count = 0;
     fifo->full = 0;
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
@@ -492,13 +492,13 @@ kelp_error_t com_channel_read(uint16_t channel_id, uint8_t* buffer, uint16_t* re
     return KELP_OK;
 }
 
-kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
+kelp_error_t com_channel_read_blocking(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size) {
     com_channel_wait_until_readable(channel_id);
 
-    return com_channel_read(channel_id, buffer, read, size);
+    return com_channel_read(channel_id, buffer, bytes_read, size);
 }
 
-kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* read, uint16_t size) {
+kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uint16_t* bytes_read, uint16_t size) {
     uint32_t saved_irq = channel_spin_lock(channel_id);
 
     if (!is_connected_to_channel_no_lock(channel_id)) {
@@ -520,7 +520,7 @@ kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uin
         return KELP_CHANNEL_EMPTY;
     }
 
-    uint32_t fifo_count = fifo->count;
+    uint16_t fifo_count = fifo->count;
 
     if (size < fifo_count) {
         channel_spin_unlock(channel_id, saved_irq);
@@ -531,7 +531,7 @@ kelp_error_t com_channel_read_no_reset(uint16_t channel_id, uint8_t* buffer, uin
         buffer[b] = fifo->bytes[b];
     }
 
-    *read = fifo_count;
+    *bytes_read = fifo_count;
     channel->inactivity_cooldown = CHANNEL_AUTO_FREE_DELAY;
 
     channel_spin_unlock(channel_id, saved_irq);

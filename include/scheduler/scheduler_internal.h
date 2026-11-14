@@ -98,6 +98,7 @@ extern uint32_t num_tasks;
 extern task_t tasks[MAX_TASKS];
 
 extern bool is_privileged();
+extern bool is_kernel();
 
 scheduler_t *get_scheduler();
 task_t *get_current_task();
