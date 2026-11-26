@@ -5,6 +5,7 @@
 #ifndef KELPOS_LITE_ERROR_CODES_H
 #define KELPOS_LITE_ERROR_CODES_H
 
+#include <stdint.h>
 
 typedef enum : int32_t {
     KELP_OK = 0,
@@ -17,22 +18,23 @@ typedef enum : int32_t {
     KELP_CHANNEL_EMPTY = -7,
     KELP_CHANNEL_FULL = -8,
     KELP_TOO_BIG = -9,
-    KELP_INVALID = -10,
-    KELP_NO_TASK = -11,
-    KELP_NOT_OWNER = -12,
-    KELP_UNALLOCATED = -13,
-    KELP_ALLOCATED = -14,
-    KELP_NONE_FREE = -15,
-    KELP_NOT_CONNECTED = -16,
-    KELP_WRONG_REASON = -17,
-    KELP_IO = -18,
-    KELP_NO_EXIST = -19,
-    KELP_EXISTS = -20,
-    KELP_BUSY = -21,
-    KELP_DENIED = -22,
-    KELP_PROTECTED = -23,
-    KELP_CORRUPT = -24,
-    KELP_LOCKED = -25,
+    KELP_TOO_SMALL = -10,
+    KELP_INVALID = -11,
+    KELP_NO_TASK = -12,
+    KELP_NOT_OWNER = -13,
+    KELP_UNALLOCATED = -14,
+    KELP_ALLOCATED = -15,
+    KELP_NONE_FREE = -16,
+    KELP_NOT_CONNECTED = -17,
+    KELP_WRONG_REASON = -18,
+    KELP_IO = -19,
+    KELP_NO_EXIST = -20,
+    KELP_EXISTS = -21,
+    KELP_BUSY = -22,
+    KELP_DENIED = -23,
+    KELP_PROTECTED = -24,
+    KELP_CORRUPT = -25,
+    KELP_LOCKED = -26,
 } kelp_error_t;
 
 #define KELP_RETURN_ON_ERROR(error) if ((error) != KELP_OK) {return (error);}
